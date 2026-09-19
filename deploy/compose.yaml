@@ -1,0 +1,44 @@
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    environment:
+      APP_MODE: ${APP_MODE:-fixture}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:3000}
+      PUBLIC_MARKET_DATA: ${PUBLIC_MARKET_DATA:-false}
+      DURABLE_WRITES: ${DURABLE_WRITES:-false}
+      DATABASE_URL: ${DATABASE_URL:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  postgres:
+    image: postgres:16.10-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jev_trade}
+      POSTGRES_USER: ${POSTGRES_USER:-jev_migrator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-development-only}
+    volumes:
+      - jev-trade-postgres:/var/lib/postgresql/data
+      - ../db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+
+volumes:
+  jev-trade-postgres:
