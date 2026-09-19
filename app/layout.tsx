@@ -1,4 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import type { ReactNode } from "react";
+
+import { AppShell } from "@/components/app-shell";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,20 +12,26 @@ export const metadata: Metadata = {
     template: "%s · Jev Trade",
   },
   description:
-    "A transparent market simulation that freezes Jev judgments, applies deterministic risk rules, and scores the outcomes.",
+    "A synthetic market simulation that freezes Jev judgments, applies deterministic risk rules, and makes every decision auditable.",
   applicationName: "Jev Trade",
   robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
   colorScheme: "dark",
-  themeColor: "#090d12",
+  themeColor: "#070a0d",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

@@ -1,0 +1,9 @@
+{
+  "fixtureVersion": "jev-trade-public-fixture-v1",
+  "generatedAt": "2026-09-19T10:00:00.000Z",
+  "dataKind": "synthetic_fixture",
+  "liveMarketData": false,
+  "durableWrites": false,
+  "prospectiveScorecardEligible": false,
+  "disclosure": "All symbols, prices, market states, forecasts, and outcomes are invented demonstration data."
+}
