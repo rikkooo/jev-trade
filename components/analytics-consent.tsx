@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+import {
+  readBrowserStorage,
+  removeBrowserStorage,
+  writeBrowserStorage,
+} from "./browser-storage";
+
 const CONSENT_KEY = "jev-trade.analytics.consent.v1";
 const ID_KEY = "jev-trade.analytics.id.v1";
 const ID_TTL_MS = 30 * 24 * 60 * 60 * 1_000;
@@ -32,7 +38,7 @@ function createIdentity(now = Date.now()): BrowserIdentity {
 
 function ensureCurrentIdentity(): void {
   const now = Date.now();
-  const raw = window.localStorage.getItem(ID_KEY);
+  const raw = readBrowserStorage(ID_KEY);
   if (raw) {
     try {
       const stored = JSON.parse(raw) as Partial<BrowserIdentity>;
@@ -47,7 +53,7 @@ function ensureCurrentIdentity(): void {
       // Invalid legacy values are replaced only after affirmative consent.
     }
   }
-  window.localStorage.setItem(ID_KEY, JSON.stringify(createIdentity(now)));
+  writeBrowserStorage(ID_KEY, JSON.stringify(createIdentity(now)));
 }
 
 export function AnalyticsConsent() {
@@ -55,7 +61,7 @@ export function AnalyticsConsent() {
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(CONSENT_KEY);
+    const stored = readBrowserStorage(CONSENT_KEY);
     if (stored === "accepted" || stored === "declined") {
       if (stored === "accepted") ensureCurrentIdentity();
       // Browser storage is the source of truth after hydration.
@@ -66,15 +72,15 @@ export function AnalyticsConsent() {
   }, []);
 
   function accept() {
-    window.localStorage.setItem(CONSENT_KEY, "accepted");
+    writeBrowserStorage(CONSENT_KEY, "accepted");
     ensureCurrentIdentity();
     setConsent("accepted");
     setExpanded(false);
   }
 
   function decline() {
-    window.localStorage.setItem(CONSENT_KEY, "declined");
-    window.localStorage.removeItem(ID_KEY);
+    writeBrowserStorage(CONSENT_KEY, "declined");
+    removeBrowserStorage(ID_KEY);
     setConsent("declined");
     setExpanded(false);
   }

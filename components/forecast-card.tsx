@@ -1,7 +1,7 @@
 import { ArrowRight, EyeOff, LockKeyhole } from "lucide-react";
 import Link from "next/link";
 
-import { formatCurrency, formatPercent } from "@/modules/view-model";
+import { formatCurrency, formatPercent, formatUtc } from "@/modules/view-model";
 import type { StockSummaryView } from "@/modules/view-model";
 
 import { StatusBadge } from "./status-badge";
@@ -44,7 +44,7 @@ export function ForecastCard({ stock }: { readonly stock: StockSummaryView }) {
             </p>
           </div>
         </div>
-      ) : (
+      ) : stock.decisionAvailable ? (
         <div className="forecast-callout">
           <div>
             <span>Policy action</span>
@@ -59,10 +59,25 @@ export function ForecastCard({ stock }: { readonly stock: StockSummaryView }) {
             <strong>SYNTHETIC</strong>
           </div>
         </div>
+      ) : (
+        <div className="blind-summary">
+          <EyeOff aria-hidden="true" />
+          <div>
+            <strong>Decision unavailable</strong>
+            <p>No validated Jev response or policy action was published.</p>
+          </div>
+        </div>
       )}
       <div className="forecast-card-meta">
         <LockKeyhole aria-hidden="true" />
-        <span>Immutable fixture ID · {stock.forecastId}</span>
+        <div>
+          <span>Cutoff · {formatUtc(stock.cutoffAt)}</span>
+          <span>Latest session · {stock.latestMarketSession}</span>
+          <span>
+            Versions · {stock.modelVersion} · {stock.policyVersion}
+          </span>
+          <span>Immutable fixture ID · {stock.forecastId}</span>
+        </div>
       </div>
       <div className="card-links">
         <Link href={`/stocks/${stock.symbol.toLowerCase()}`}>

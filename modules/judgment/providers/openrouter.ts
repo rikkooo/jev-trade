@@ -67,10 +67,11 @@ function parseRetryAfter(
 async function readBoundedBody(
   response: Response,
   maximumBytes: number,
+  signal: AbortSignal,
 ): Promise<{ readonly responseHash: string; readonly text: string }> {
   const declared = Number(response.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > maximumBytes) {
-    await response.body?.cancel();
+    void response.body?.cancel().catch(() => undefined);
     throw new JudgmentProviderError("INVALID_RESPONSE", false);
   }
   const hasher = createHash("sha256");
@@ -81,13 +82,23 @@ async function readBoundedBody(
   const decoder = new TextDecoder();
   let bytes = 0;
   let text = "";
+  let rejectAbort: ((reason?: unknown) => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectAbort = reject;
+  });
+  const abortBodyRead = () => {
+    rejectAbort?.(new DOMException("Response body read aborted", "AbortError"));
+    void reader.cancel().catch(() => undefined);
+  };
+  signal.addEventListener("abort", abortBodyRead, { once: true });
+  if (signal.aborted) abortBodyRead();
   try {
     for (;;) {
-      const { value, done } = await reader.read();
+      const { value, done } = await Promise.race([reader.read(), aborted]);
       if (done) break;
       bytes += value.byteLength;
       if (bytes > maximumBytes) {
-        await reader.cancel();
+        void reader.cancel().catch(() => undefined);
         throw new JudgmentProviderError("INVALID_RESPONSE", false);
       }
       hasher.update(value);
@@ -98,7 +109,8 @@ async function readBoundedBody(
       text: text + decoder.decode(),
     };
   } finally {
-    reader.releaseLock();
+    signal.removeEventListener("abort", abortBodyRead);
+    if (!signal.aborted) reader.releaseLock();
   }
 }
 
@@ -249,13 +261,20 @@ export class OpenRouterJevProvider implements JevProvider {
           ({ responseHash, text: body } = await readBoundedBody(
             response,
             this.#maxResponseBytes,
+            controller.signal,
           ));
         } catch (error) {
           const canceled = callerSignal?.aborted === true;
+          if (controller.signal.aborted && !canceled) throw error;
+          const failureCode = canceled
+            ? ("CANCELED" as const)
+            : error instanceof JudgmentProviderError
+              ? error.code
+              : ("INVALID_RESPONSE" as const);
           attempts.push(
             Object.freeze({
               attempt,
-              ...(canceled ? { code: "CANCELED" as const } : {}),
+              code: failureCode,
               durationMs,
               status: response.status,
             }),
@@ -263,10 +282,7 @@ export class OpenRouterJevProvider implements JevProvider {
           if (canceled) {
             throw new JudgmentProviderError("CANCELED", false, attempts);
           }
-          if (error instanceof JudgmentProviderError) {
-            throw new JudgmentProviderError(error.code, false, attempts);
-          }
-          throw new JudgmentProviderError("INVALID_RESPONSE", false, attempts);
+          throw new JudgmentProviderError(failureCode, false, attempts);
         }
         const completedDurationMs = Math.max(0, this.#now() - attemptStartedAt);
         attempts.push(

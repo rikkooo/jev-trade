@@ -12,13 +12,16 @@ import {
 interface SharePageProps {
   readonly params: Promise<{ id: string }>;
 }
+
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return getFixtureForecastStaticParams();
 }
 
 export default async function SharePage({ params }: SharePageProps) {
   const forecast = getForecastById((await params).id);
-  if (!forecast) notFound();
+  if (!forecast || forecast.pickEligible) notFound();
   return (
     <div className="page-wrap share-page">
       <Link className="back-link" href={`/forecasts/${forecast.id}`}>
@@ -40,11 +43,25 @@ export default async function SharePage({ params }: SharePageProps) {
             </span>
           </h1>
           <div className="share-action">
-            <span>Jev judged</span>
-            <strong>{forecast.judgment.choice.toUpperCase()}</strong>
-            <small>Policy action · {forecast.action}</small>
+            <span>
+              {forecast.judgment ? "Jev judged" : "Decision unavailable"}
+            </span>
+            <strong>
+              {forecast.judgment
+                ? forecast.judgment.choice.toUpperCase()
+                : forecast.displayState.toUpperCase()}
+            </strong>
+            <small>
+              {forecast.action
+                ? `Policy action · ${forecast.action}`
+                : "No Jev answer or policy action was published"}
+            </small>
           </div>
-          <ProbabilityBars judgment={forecast.judgment} />
+          {forecast.judgment ? (
+            <ProbabilityBars judgment={forecast.judgment} />
+          ) : (
+            <p className="inline-disclosure">{forecast.stateMessage}</p>
+          )}
           <div className="share-risk">
             <div>
               <span>Market risk</span>

@@ -68,6 +68,242 @@ describe("exchange-session scheduling", () => {
     ]);
   });
 
+  it("accounts for an outage from durable high water without backdating forecasts", () => {
+    const queue = new InMemoryJobQueue();
+    const result = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-12-01T22:00:00.000Z",
+      sessions,
+      symbols: [
+        { symbol: "AAPL", latestCompletedBarSession: "2026-12-01" },
+        { symbol: "MSFT", latestCompletedBarSession: "2026-12-01" },
+      ],
+      lastScheduledSessionBySymbol: {
+        AAPL: "2026-11-25",
+        MSFT: "2026-11-25",
+      },
+      maxAttempts: 3,
+    });
+
+    expect(result).toMatchObject({
+      targetSession: "2026-12-01",
+      nextHighWaterSessionBySymbol: {
+        AAPL: "2026-12-01",
+        MSFT: "2026-12-01",
+      },
+      missed: [
+        {
+          symbol: "AAPL",
+          session: "2026-11-27",
+          reason: "MISSED_SCHEDULER_WINDOW",
+          prospectiveEligible: false,
+        },
+        {
+          symbol: "AAPL",
+          session: "2026-11-30",
+          reason: "MISSED_SCHEDULER_WINDOW",
+          prospectiveEligible: false,
+        },
+        {
+          symbol: "MSFT",
+          session: "2026-11-27",
+          reason: "MISSED_SCHEDULER_WINDOW",
+          prospectiveEligible: false,
+        },
+        {
+          symbol: "MSFT",
+          session: "2026-11-30",
+          reason: "MISSED_SCHEDULER_WINDOW",
+          prospectiveEligible: false,
+        },
+      ],
+    });
+    expect(result.enqueued.map((job) => job.operationKey)).toEqual([
+      "eod:AAPL:2026-12-01",
+      "eod:MSFT:2026-12-01",
+    ]);
+    expect(
+      queue
+        .list()
+        .some(
+          (job) =>
+            job.operationKey.includes("2026-11-27") ||
+            job.operationKey.includes("2026-11-30"),
+        ),
+    ).toBe(false);
+
+    const repeated = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-12-01T22:01:00.000Z",
+      sessions,
+      symbols: [
+        { symbol: "AAPL", latestCompletedBarSession: "2026-12-01" },
+        { symbol: "MSFT", latestCompletedBarSession: "2026-12-01" },
+      ],
+      lastScheduledSessionBySymbol: result.nextHighWaterSessionBySymbol,
+      maxAttempts: 3,
+    });
+    expect(repeated).toMatchObject({
+      targetSession: null,
+      nextHighWaterSessionBySymbol: {
+        AAPL: "2026-12-01",
+        MSFT: "2026-12-01",
+      },
+      enqueued: [],
+      delayed: [],
+      missed: [],
+    });
+    expect(queue.list()).toHaveLength(2);
+  });
+
+  it("bounds first-run scheduling to the latest due session", () => {
+    const queue = new InMemoryJobQueue();
+    const result = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-12-01T22:00:00.000Z",
+      sessions,
+      symbols: [{ symbol: "AAPL", latestCompletedBarSession: "2026-12-01" }],
+      lastScheduledSessionBySymbol: { AAPL: null },
+      maxAttempts: 3,
+    });
+
+    expect(result.missed).toEqual([]);
+    expect(result.enqueued).toMatchObject([
+      { operationKey: "eod:AAPL:2026-12-01" },
+    ]);
+  });
+
+  it("keeps high water open while the newest due bar is delayed", () => {
+    const queue = new InMemoryJobQueue();
+    const result = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-12-01T22:00:00.000Z",
+      sessions,
+      symbols: [{ symbol: "AAPL", latestCompletedBarSession: "2026-11-30" }],
+      lastScheduledSessionBySymbol: { AAPL: "2026-11-30" },
+      maxAttempts: 3,
+    });
+
+    expect(result).toMatchObject({
+      targetSession: "2026-12-01",
+      nextHighWaterSessionBySymbol: { AAPL: "2026-11-30" },
+      enqueued: [],
+      delayed: [
+        {
+          symbol: "AAPL",
+          expectedSession: "2026-12-01",
+          latestCompletedBarSession: "2026-11-30",
+        },
+      ],
+    });
+  });
+
+  it("advances each symbol independently across mixed delayed and ready ticks", () => {
+    const queue = new InMemoryJobQueue();
+    const first = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-11-30T22:00:00.000Z",
+      sessions,
+      symbols: [
+        { symbol: "AAPL", latestCompletedBarSession: "2026-11-30" },
+        { symbol: "MSFT", latestCompletedBarSession: "2026-11-27" },
+      ],
+      lastScheduledSessionBySymbol: {
+        AAPL: "2026-11-27",
+        MSFT: "2026-11-27",
+      },
+      maxAttempts: 3,
+    });
+
+    expect(first).toMatchObject({
+      nextHighWaterSessionBySymbol: {
+        AAPL: "2026-11-30",
+        MSFT: "2026-11-27",
+      },
+      missed: [],
+    });
+    expect(first.enqueued.map((job) => job.operationKey)).toEqual([
+      "eod:AAPL:2026-11-30",
+    ]);
+    const healthyLease = queue.claim({
+      workerId: "healthy-publisher",
+      now: "2026-11-30T22:00:00.000Z",
+      leaseMs: 10_000,
+    })!;
+    queue.succeed(healthyLease, "2026-11-30T22:00:01.000Z");
+
+    const second = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-12-01T22:00:00.000Z",
+      sessions,
+      symbols: [
+        { symbol: "AAPL", latestCompletedBarSession: "2026-12-01" },
+        { symbol: "MSFT", latestCompletedBarSession: "2026-12-01" },
+      ],
+      // Exercise recovery from a stale cursor as well as the normal durable
+      // per-symbol cursor path. The existing AAPL job remains authoritative.
+      lastScheduledSessionBySymbol: {
+        AAPL: "2026-11-27",
+        MSFT: "2026-11-27",
+      },
+      maxAttempts: 3,
+    });
+
+    expect(second.nextHighWaterSessionBySymbol).toEqual({
+      AAPL: "2026-12-01",
+      MSFT: "2026-12-01",
+    });
+    expect(second.missed).toEqual([
+      {
+        idempotencyKey: "eod-missed:MSFT:2026-11-30",
+        symbol: "MSFT",
+        session: "2026-11-30",
+        expectedBarAt: "2026-11-30T21:20:00.000Z",
+        reason: "MISSED_SCHEDULER_WINDOW",
+        prospectiveEligible: false,
+      },
+    ]);
+    expect(second.missed).not.toContainEqual(
+      expect.objectContaining({ symbol: "AAPL", session: "2026-11-30" }),
+    );
+    expect(second.enqueued.map((job) => job.operationKey)).toEqual([
+      "eod:AAPL:2026-12-01",
+      "eod:MSFT:2026-12-01",
+    ]);
+
+    const staleCursorRepeat = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-12-01T22:00:30.000Z",
+      sessions,
+      symbols: [
+        { symbol: "AAPL", latestCompletedBarSession: "2026-12-01" },
+        { symbol: "MSFT", latestCompletedBarSession: "2026-12-01" },
+      ],
+      lastScheduledSessionBySymbol: {
+        AAPL: "2026-11-27",
+        MSFT: "2026-11-27",
+      },
+      maxAttempts: 3,
+    });
+    expect(staleCursorRepeat.missed).toEqual(second.missed);
+    expect(staleCursorRepeat.missed[0]?.idempotencyKey).toBe(
+      "eod-missed:MSFT:2026-11-30",
+    );
+    expect(queue.list()).toHaveLength(3);
+
+    const repeated = enqueueAvailableEodEvaluations(queue, {
+      now: "2026-12-01T22:01:00.000Z",
+      sessions,
+      symbols: [
+        { symbol: "AAPL", latestCompletedBarSession: "2026-12-01" },
+        { symbol: "MSFT", latestCompletedBarSession: "2026-12-01" },
+      ],
+      lastScheduledSessionBySymbol: second.nextHighWaterSessionBySymbol,
+      maxAttempts: 3,
+    });
+    expect(repeated).toMatchObject({
+      targetSession: null,
+      nextHighWaterSessionBySymbol: second.nextHighWaterSessionBySymbol,
+      enqueued: [],
+      delayed: [],
+      missed: [],
+    });
+    expect(queue.list()).toHaveLength(3);
+  });
+
   it("enqueues monitoring once per open position and newly completed session", () => {
     const queue = new InMemoryJobQueue();
     const input = {

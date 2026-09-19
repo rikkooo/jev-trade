@@ -172,14 +172,32 @@ grace window.
 
 1. Page the operator as the deadline approaches or is missed.
 2. Stop related entry processing.
-3. Preserve root, previous-root link, dispatch attempt, provider timestamps, and
-   receipt if it later arrives.
-4. Fix the publisher/GitHub workflow and verify the chain. A late receipt may
-   prove later history but never changes prospective eligibility.
-5. Run the rolling 30-day missed-root query. More than 2% missed roots fails the
+3. Preserve the original dispatch envelope, root, previous-root link, provider
+   timestamps, GitHub run URL/conclusion, start artifact, terminal artifact when
+   present, and any receipt. The run conclusion remains explicit evidence when
+   a manual cancellation prevents the terminal job from running.
+4. Identify whether the run stopped before archival, during the non-force branch
+   update, or after archival and before/during attestation. Do not infer
+   attestation from the root's presence on `ledger-roots`.
+5. Replay the exact original dispatch envelope. Do not create a new batch key or
+   root, change its deadline, or point it at a different predecessor. If the
+   original archive commit completed, replay is idempotent. If it did not, the
+   append succeeds only while the durable head still matches the original
+   predecessor; a competing head is an integrity incident, not permission to
+   force-update or re-anchor.
+6. Before the deadline, the replay may complete external attestation. At or after
+   the deadline, the original root may still be archived to keep the chain
+   complete, but the pre-attestation gate fails loudly and starts no new external
+   attestation. An attestation action that began before the deadline but finished
+   after it also fails the completion check and remains late evidence. Every
+   affected forecast remains permanently `EXTERNALLY_UNVERIFIED` with no paper
+   fill or prospective admission.
+7. Verify that `head.json`, `roots/<ROOT_HASH>.json`, the workflow attempt
+   evidence, and the database root all identify the same immutable envelope.
+   Resume later batches only after the missing original root is the durable head
+   and the path is healthy; their predecessor links must remain unchanged.
+8. Run the rolling 30-day missed-root query. More than 2% missed roots fails the
    promotion reliability gate.
-6. Resume only with the next eligible publication batch after the attestation
-   path is healthy.
 
 Never alter a root timestamp, forecast cutoff, receipt time, or eligibility flag
 to rescue a missed cohort.
@@ -226,4 +244,3 @@ disposable cleanup targets.
       applicable.
 - [ ] Resume decision and any permanently excluded cohort recorded.
 - [ ] Independent review and follow-up owner/date recorded.
-

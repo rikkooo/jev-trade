@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 
 import type { Direction } from "@/modules/view-model";
 
+import { readBrowserStorage, writeBrowserStorage } from "./browser-storage";
+
 interface BlindPickProps {
   readonly forecastId: string;
   readonly symbol: string;
@@ -27,21 +29,24 @@ export function BlindPick({
   onRevealRequest,
 }: BlindPickProps) {
   const [pick, setPick] = useState<Direction | null>(null);
+  const [wasRevealed, setWasRevealed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [storageUnavailable, setStorageUnavailable] = useState(false);
 
   useEffect(() => {
-    const savedPick = window.localStorage.getItem(pickKey(forecastId));
+    const savedPick = readBrowserStorage(pickKey(forecastId));
     if (savedPick === "up" || savedPick === "flat" || savedPick === "down") {
       // Browser-local picks are restored only after hydration.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPick(savedPick);
     }
-    const wasRevealed =
-      window.localStorage.getItem(revealKey(forecastId)) === "true";
+    const persistedReveal =
+      readBrowserStorage(revealKey(forecastId)) === "true";
+    setWasRevealed(persistedReveal);
     setHydrated(true);
-    if (wasRevealed) {
+    if (persistedReveal) {
       setLoading(true);
       void onRevealRequest()
         .catch(() => setError("The fixture reveal could not be loaded."))
@@ -50,8 +55,10 @@ export function BlindPick({
   }, [forecastId, onRevealRequest]);
 
   function freezePick(choice: Direction) {
-    if (pick || revealed) return;
-    window.localStorage.setItem(pickKey(forecastId), choice);
+    if (pick || revealed || wasRevealed) return;
+    if (!writeBrowserStorage(pickKey(forecastId), choice)) {
+      setStorageUnavailable(true);
+    }
     setPick(choice);
   }
 
@@ -61,7 +68,10 @@ export function BlindPick({
     setError(null);
     try {
       await onRevealRequest();
-      window.localStorage.setItem(revealKey(forecastId), "true");
+      if (!writeBrowserStorage(revealKey(forecastId), "true")) {
+        setStorageUnavailable(true);
+      }
+      setWasRevealed(true);
     } catch {
       setError(
         "The fixture reveal could not be loaded. Your pick remains frozen locally.",
@@ -99,7 +109,7 @@ export function BlindPick({
                 className={`pick-button pick-${choice}${pick === choice ? " selected" : ""}`}
                 key={choice}
                 onClick={() => freezePick(choice)}
-                disabled={!hydrated || pick !== null || loading}
+                disabled={!hydrated || pick !== null || loading || wasRevealed}
                 aria-pressed={pick === choice}
               >
                 <span>
@@ -114,6 +124,12 @@ export function BlindPick({
               <LockKeyhole aria-hidden="true" />
               Your frozen pick: <strong>{pick.toUpperCase()}</strong>
             </div>
+          ) : null}
+          {storageUnavailable ? (
+            <p className="muted" role="status">
+              Browser storage is unavailable. This state is frozen for this open
+              page only.
+            </p>
           ) : null}
           <div className="reveal-actions">
             {pick ? (

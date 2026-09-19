@@ -26,8 +26,10 @@ output out of the receipt.
 
 ## Runtime evidence
 
-- [ ] `pnpm verify:deployment -- <preview-url>` passed.
-- [ ] `pnpm verify:deployment -- <production-url>` passed.
+- [ ] `pnpm verify:deployment -- <preview-url> --expected-revision <reviewed-sha> --canonical-origin <canonical-origin>` passed.
+- [ ] `pnpm verify:deployment -- <production-url> --expected-revision <reviewed-sha> --canonical-origin <canonical-origin>` passed.
+- [ ] Both verifier JSON receipts are attached with their immutable URL,
+      expected revision, canonical origin, executed checks, and UTC timestamp.
 - [ ] Health reported `fixture`, `durableWrites=false`,
       `publicMarketData=false`, and `liveJudgments=false`.
 - [ ] No live provider, database, Cron, or operator credential was present.

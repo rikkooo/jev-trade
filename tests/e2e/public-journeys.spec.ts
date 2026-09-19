@@ -20,6 +20,7 @@ test("blind stock journey hides the call until reveal", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: /UP leads the distribution/i }),
   ).toBeVisible();
+  await expect(page.getByText("62%", { exact: true })).toBeVisible();
   await expect(page.getByText("CODE-OWNED POLICY ACTION")).toBeVisible();
   await expect(page.getByText("JEV JUDGMENT", { exact: true })).toBeVisible();
   await expect(
@@ -28,6 +29,29 @@ test("blind stock journey hides the call until reveal", async ({ page }) => {
   await expect(
     page.getByText("DETERMINISTIC POSITION RISK", { exact: true }),
   ).toBeVisible();
+});
+
+test("blind forecast has no directly addressable audit or share page", async ({
+  page,
+}) => {
+  for (const path of [
+    "/forecasts/01K5D3JEVACME5SPRINT0001",
+    "/forecasts/01K5D3JEVACME5SPRINT0001/share",
+  ]) {
+    const response = await page.goto(path);
+    expect(response?.status()).toBe(404);
+    await expect(page.getByText("UP leads the distribution")).toHaveCount(0);
+    await expect(page.getByText("62%")).toHaveCount(0);
+  }
+});
+
+test("production artifact sends hardened browser headers", async ({ page }) => {
+  const response = await page.goto("/");
+  expect(response?.status()).toBe(200);
+  const headers = response?.headers() ?? {};
+  expect(headers["content-security-policy"]).toContain("default-src 'self'");
+  expect(headers["content-security-policy"]).not.toContain("'unsafe-eval'");
+  expect(headers["strict-transport-security"]).toContain("max-age=31536000");
 });
 
 test("reveals without a pick and keeps analytics optional", async ({

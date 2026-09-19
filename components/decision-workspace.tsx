@@ -12,6 +12,46 @@ export function DecisionWorkspace({
 }: {
   readonly forecast: ForecastView;
 }) {
+  if (!forecast.judgment || !forecast.action) {
+    return (
+      <div className="revealed-decision">
+        <section className="panel muted-panel" aria-labelledby="decision-state">
+          <Info aria-hidden="true" />
+          <div>
+            <p className="eyebrow">DECISION UNAVAILABLE</p>
+            <h2 id="decision-state">No publishable Jev decision exists</h2>
+            <p>{forecast.stateMessage}</p>
+          </div>
+        </section>
+        <section
+          className="panel decision-history"
+          aria-labelledby="history-heading"
+        >
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">ATTEMPT HISTORY</p>
+              <h2 id="history-heading">Append-only fixture timeline</h2>
+            </div>
+            <Fingerprint aria-hidden="true" />
+          </div>
+          <ol className="timeline">
+            {forecast.timeline.map((event) => (
+              <li
+                key={`${event.at}-${event.label}`}
+                className={`timeline-${event.tone}`}
+              >
+                <time dateTime={event.at}>{formatUtc(event.at)}</time>
+                <div>
+                  <strong>{event.label}</strong>
+                  <p>{event.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+    );
+  }
   const actionSuppressed = ["stale", "incomplete", "failed", "void"].includes(
     forecast.displayState,
   );
@@ -88,12 +128,19 @@ export function DecisionWorkspace({
               <dd>{forecast.forecastStatus}</dd>
             </div>
           </dl>
-          <Link
-            className="button button-secondary full-width"
-            href={`/forecasts/${forecast.id}`}
-          >
-            Audit immutable record <ArrowRight aria-hidden="true" />
-          </Link>
+          {forecast.pickEligible ? (
+            <p className="inline-disclosure">
+              This blind fixture stays off public audit and share routes. Its
+              revealed record remains in this browser session.
+            </p>
+          ) : (
+            <Link
+              className="button button-secondary full-width"
+              href={`/forecasts/${forecast.id}`}
+            >
+              Audit immutable record <ArrowRight aria-hidden="true" />
+            </Link>
+          )}
         </aside>
       </div>
       <RiskTriptych forecast={forecast} />

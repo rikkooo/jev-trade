@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next";
 
 import { getPublicOrigin } from "@/modules/config/public-origin";
-import { FIXTURE_FORECASTS } from "@/modules/view-model";
+import {
+  FIXTURE_AUDIT_FORECASTS,
+  FIXTURE_FORECASTS,
+} from "@/modules/view-model";
 
 const publicPaths = [
   "",
@@ -16,9 +19,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const stockPaths = [...new Set(FIXTURE_FORECASTS.map(({ symbol }) => symbol))]
     .sort()
     .map((symbol) => `/stocks/${symbol.toLowerCase()}`);
-  const forecastPaths = FIXTURE_FORECASTS.map(
-    ({ id }) => `/forecasts/${encodeURIComponent(id)}`,
-  );
+  const forecastPaths = FIXTURE_AUDIT_FORECASTS.filter(
+    ({ pickEligible }) => !pickEligible,
+  ).map(({ id }) => `/forecasts/${encodeURIComponent(id)}`);
 
   return [...publicPaths, ...stockPaths, ...forecastPaths].map((path) => ({
     url: new URL(path || "/", origin).toString(),

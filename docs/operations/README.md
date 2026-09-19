@@ -92,3 +92,30 @@ of an action after it is performed; an unchecked template is not evidence.
    successful Vercel deployment or valid API key does not grant display rights.
 6. Rolling back the application does not roll back Postgres. Use the database
    recovery process and preserve the original ledger.
+
+## Root attestation recovery contract
+
+The isolated publisher sends one immutable dispatch envelope per publication
+batch. Its GitHub request timeout is capped by both a short transport budget and
+the time remaining before `attestationDeadline`. Timeout, network, rate-limit,
+and GitHub 5xx failures are retryable only by submitting that exact envelope
+again; every retry re-evaluates the deadline.
+
+The workflow verifies continuity, archives the original root on the append-only
+`ledger-roots` branch, and only then attempts the external GitHub attestation.
+Archival and attestation are separate facts. A root in `ledger-roots` preserves
+the chain but is prospective-scorecard eligible only when its external receipt
+completed before the deadline.
+
+Each dispatch creates a start artifact linked to the GitHub run. The terminal
+job records prepare, archive, and attestation results, uploads terminal evidence,
+and leaves an unsuccessful completed run red. GitHub's cancelled conclusion is
+the terminal evidence if a manual cancellation prevents that cleanup job from
+running.
+
+Recovery always replays the original batch key, root hash, predecessor,
+timestamps, counts, and source revision. The archive transition treats an exact
+existing root as success, including a retry after the branch has advanced. It
+rejects a changed envelope, malformed head, missing predecessor, or non-fast-
+forward update. Never create a replacement root, change a deadline, skip the
+missing link, force-update `ledger-roots`, or re-anchor the next batch.

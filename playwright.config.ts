@@ -9,10 +9,9 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:3000",
-    launchOptions: {
-      executablePath:
-        process.env.PLAYWRIGHT_CHROME_PATH ?? "/usr/bin/google-chrome",
-    },
+    launchOptions: process.env.PLAYWRIGHT_CHROME_PATH
+      ? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH }
+      : {},
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -40,9 +39,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "pnpm dev --hostname 127.0.0.1",
+    command:
+      "pnpm build && cp -r public .next/standalone/ && mkdir -p .next/standalone/.next && cp -r .next/static .next/standalone/.next/ && HOSTNAME=127.0.0.1 PORT=3000 node .next/standalone/server.js",
     url: "http://127.0.0.1:3000/api/health",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    reuseExistingServer: false,
+    timeout: 240_000,
   },
 });

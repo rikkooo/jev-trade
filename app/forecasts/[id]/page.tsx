@@ -24,6 +24,8 @@ interface ForecastPageProps {
   readonly params: Promise<{ id: string }>;
 }
 
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return getFixtureForecastStaticParams();
 }
@@ -42,7 +44,7 @@ export async function generateMetadata({
 
 export default async function ForecastPage({ params }: ForecastPageProps) {
   const forecast = getForecastById((await params).id);
-  if (!forecast) notFound();
+  if (!forecast || forecast.pickEligible) notFound();
   return (
     <div className="page-wrap audit-page">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
@@ -108,19 +110,30 @@ export default async function ForecastPage({ params }: ForecastPageProps) {
 
       <div className="audit-summary-grid">
         <section className="panel">
-          <p className="eyebrow">TYPED JEV RESPONSE</p>
-          <h2>
-            {forecast.judgment.choice.toUpperCase()} ·{" "}
-            {Math.round(forecast.judgment.confidence * 100)}% answer confidence
-          </h2>
-          <ProbabilityBars judgment={forecast.judgment} />
-          <p className="inline-disclosure">
-            Model judgment only; not a calibrated chance of profit.
-          </p>
+          {forecast.judgment ? (
+            <>
+              <p className="eyebrow">TYPED JEV RESPONSE</p>
+              <h2>
+                {forecast.judgment.choice.toUpperCase()} ·{" "}
+                {Math.round(forecast.judgment.confidence * 100)}% answer
+                confidence
+              </h2>
+              <ProbabilityBars judgment={forecast.judgment} />
+              <p className="inline-disclosure">
+                Model judgment only; not a calibrated chance of profit.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="eyebrow">JEV RESPONSE STATUS</p>
+              <h2>No validated Jev response</h2>
+              <p className="inline-disclosure">{forecast.stateMessage}</p>
+            </>
+          )}
         </section>
         <section className="panel action-record">
           <p className="eyebrow">DETERMINISTIC POLICY RECORD</p>
-          <h2>{forecast.action}</h2>
+          <h2>{forecast.action ?? "NOT RUN"}</h2>
           <dl>
             <div>
               <dt>Policy</dt>
@@ -173,47 +186,60 @@ export default async function ForecastPage({ params }: ForecastPageProps) {
         </section>
       ) : null}
 
-      <section className="panel" aria-labelledby="gates-heading">
-        <div className="section-heading">
+      {forecast.gates.length > 0 ? (
+        <section className="panel" aria-labelledby="gates-heading">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">POLICY TRACE</p>
+              <h2 id="gates-heading">Ordered deterministic gates</h2>
+            </div>
+            <span className="mono-tag">{forecast.policyVersion}</span>
+          </div>
+          <div className="table-scroll">
+            <table>
+              <caption>Ordered gate decisions for {forecast.id}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Order</th>
+                  <th scope="col">Gate</th>
+                  <th scope="col">Result</th>
+                  <th scope="col">Recorded reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {forecast.gates.map((gate) => (
+                  <tr key={gate.order}>
+                    <td>{String(gate.order).padStart(2, "0")}</td>
+                    <th scope="row">{gate.id}</th>
+                    <td>
+                      <span
+                        className={`gate-result gate-${gate.status.replace("_", "-")}`}
+                      >
+                        {gate.status === "pass" ? (
+                          <Check aria-hidden="true" />
+                        ) : null}
+                        {gate.status.replace("_", " ").toUpperCase()}
+                      </span>
+                    </td>
+                    <td>
+                      {gate.reason} Rule: {gate.rule}. Recorded value:{" "}
+                      {gate.actual === null ? "n/a" : String(gate.actual)}.
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : (
+        <section className="panel muted-panel" aria-labelledby="gates-heading">
           <div>
             <p className="eyebrow">POLICY TRACE</p>
-            <h2 id="gates-heading">Ordered deterministic gates</h2>
+            <h2 id="gates-heading">Policy was not run</h2>
+            <p>{forecast.stateMessage}</p>
           </div>
-          <span className="mono-tag">{forecast.policyVersion}</span>
-        </div>
-        <div className="table-scroll">
-          <table>
-            <caption>Ordered gate decisions for {forecast.id}</caption>
-            <thead>
-              <tr>
-                <th scope="col">Order</th>
-                <th scope="col">Gate</th>
-                <th scope="col">Result</th>
-                <th scope="col">Recorded reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {forecast.gates.map((gate) => (
-                <tr key={gate.order}>
-                  <td>{String(gate.order).padStart(2, "0")}</td>
-                  <th scope="row">{gate.label}</th>
-                  <td>
-                    <span
-                      className={`gate-result gate-${gate.result.toLowerCase().replace(" ", "-")}`}
-                    >
-                      {gate.result === "PASS" ? (
-                        <Check aria-hidden="true" />
-                      ) : null}
-                      {gate.result}
-                    </span>
-                  </td>
-                  <td>{gate.detail}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+        </section>
+      )}
 
       <div className="detail-grid">
         <section className="panel">
@@ -230,6 +256,12 @@ export default async function ForecastPage({ params }: ForecastPageProps) {
               <dt>State hash</dt>
               <dd className="hash">
                 <code>{forecast.decisionStateHash}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Judgment input hash</dt>
+              <dd className="hash">
+                <code>{forecast.judgmentInputHash}</code>
               </dd>
             </div>
             <div>

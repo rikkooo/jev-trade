@@ -88,9 +88,57 @@ describe("in-memory job queue", () => {
         maxAttempts: 2,
       }),
     ).toThrow(JobQueueConflictError);
+
+    expect(() =>
+      jobs.enqueue({
+        operationKey: "eod:AAPL:2026-09-21",
+        kind: "eod_evaluation",
+        payload: { symbol: "AAPL" },
+        availableAt: "2026-09-21T23:00:00.000Z",
+        maxAttempts: 3,
+      }),
+    ).toThrow(JobQueueConflictError);
   });
 
-  it("expires a lease, makes the failure visible, and safely reclaims it", () => {
+  it("rejects a replay key reused for a different replay target", () => {
+    const jobs = queue();
+    const firstTarget = jobs.enqueue({
+      operationKey: "eod:AAPL:2026-09-21",
+      kind: "eod_evaluation",
+      payload: { symbol: "AAPL" },
+      availableAt: start,
+      maxAttempts: 2,
+    }).job;
+    const secondTarget = jobs.enqueue({
+      operationKey: "eod:MSFT:2026-09-21",
+      kind: "eod_evaluation",
+      payload: { symbol: "MSFT" },
+      availableAt: start,
+      maxAttempts: 2,
+    }).job;
+
+    jobs.enqueue({
+      operationKey: "replay:operator:stable",
+      kind: "correction_replay",
+      payload: { requestedBy: "operator@example.test" },
+      availableAt: start,
+      maxAttempts: 2,
+      replayOfOperationId: firstTarget.id,
+    });
+
+    expect(() =>
+      jobs.enqueue({
+        operationKey: "replay:operator:stable",
+        kind: "correction_replay",
+        payload: { requestedBy: "operator@example.test" },
+        availableAt: "2026-09-21T23:00:00.000Z",
+        maxAttempts: 2,
+        replayOfOperationId: secondTarget.id,
+      }),
+    ).toThrow(JobQueueConflictError);
+  });
+
+  it("expires a lease, records the failure, and backs off its reclaim", () => {
     const jobs = queue();
     jobs.enqueue({
       operationKey: "eod:ACME:2026-09-21",
@@ -102,13 +150,18 @@ describe("in-memory job queue", () => {
     const first = jobs.claim({ workerId: "lost", now: start, leaseMs: 5_000 });
     expect(first).not.toBeNull();
 
-    const reclaimed = jobs.claim({
+    const duringBackoff = jobs.claim({
       workerId: "recovery",
       now: "2026-09-21T22:00:05.001Z",
       leaseMs: 5_000,
     });
 
-    expect(reclaimed?.attemptNumber).toBe(2);
+    expect(duringBackoff).toBeNull();
+    expect(jobs.get(first!.jobId)).toMatchObject({
+      status: "retryable",
+      attemptCount: 1,
+      availableAt: "2026-09-21T22:00:06.001Z",
+    });
     expect(jobs.attempts(first!.jobId)[0]).toMatchObject({
       status: "failed",
       errorCode: "LEASE_EXPIRED",
@@ -117,6 +170,51 @@ describe("in-memory job queue", () => {
         { status: "evaluating" },
         { status: "failed", errorCode: "LEASE_EXPIRED" },
       ],
+    });
+
+    expect(
+      jobs.claim({
+        workerId: "recovery",
+        now: "2026-09-21T22:00:06.000Z",
+        leaseMs: 5_000,
+      }),
+    ).toBeNull();
+    expect(
+      jobs.claim({
+        workerId: "recovery",
+        now: "2026-09-21T22:00:06.001Z",
+        leaseMs: 5_000,
+      })?.attemptNumber,
+    ).toBe(2);
+  });
+
+  it("caps backoff when an expired lease is explicitly released", () => {
+    const jobs = new InMemoryJobQueue({
+      retryDelayMs: () => 10_000_000,
+    });
+    const job = jobs.enqueue({
+      operationKey: "eod:ACME:2026-09-22",
+      kind: "eod_evaluation",
+      payload: { symbol: "ACME" },
+      availableAt: start,
+      maxAttempts: 3,
+    }).job;
+    const lease = jobs.claim({
+      workerId: "slow-worker",
+      now: start,
+      leaseMs: 5_000,
+    })!;
+
+    jobs.release(lease, "2026-09-21T22:00:05.001Z", "LEASE_EXPIRED");
+
+    expect(jobs.get(job.id)).toMatchObject({
+      status: "retryable",
+      attemptCount: 1,
+      availableAt: "2026-09-21T22:05:05.001Z",
+    });
+    expect(jobs.attempts(job.id)[0]).toMatchObject({
+      status: "failed",
+      errorCode: "LEASE_EXPIRED",
     });
   });
 
@@ -147,7 +245,7 @@ describe("in-memory job queue", () => {
     );
   });
 
-  it("bounds retries, dead-letters the operation, then permits an explicit replay", () => {
+  it("replays idempotently even when the retry is scheduled later", () => {
     const jobs = queue();
     const original = jobs.enqueue({
       operationKey: "judgment:AAPL:2026-09-21",
@@ -200,7 +298,7 @@ describe("in-memory job queue", () => {
         idempotencyKey: "ops-20260921-aapl",
         requestedBy: "operator@example.test",
         reason: "Provider recovered",
-        now: "2026-09-21T22:05:00.000Z",
+        now: "2026-09-21T22:06:00.000Z",
       }).created,
     ).toBe(false);
   });
@@ -238,5 +336,26 @@ describe("in-memory job queue", () => {
       status: "queued",
     });
     expect(jobs.get(original.id)?.status).toBe("succeeded");
+
+    const retried = enqueueCorrectionReplays(jobs, {
+      sourceRecordId: "provider-correction-7",
+      reason: "Vendor corrected the horizon close",
+      requestedBy: "operator@example.test",
+      idempotencyKey: "correction-20260921-0007",
+      affectedOperationIds: [original.id],
+      now: "2026-09-22T00:00:00.000Z",
+    });
+    expect(retried).toHaveLength(1);
+    expect(retried[0]?.id).toBe(replays[0]?.id);
+
+    const freshReplay = enqueueCorrectionReplays(jobs, {
+      sourceRecordId: "provider-correction-7",
+      reason: "Vendor corrected the horizon close",
+      requestedBy: "operator@example.test",
+      idempotencyKey: "correction-20260921-0008",
+      affectedOperationIds: [original.id],
+      now: "2026-09-22T00:01:00.000Z",
+    });
+    expect(freshReplay[0]?.id).not.toBe(replays[0]?.id);
   });
 });

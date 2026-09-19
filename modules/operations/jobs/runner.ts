@@ -31,7 +31,19 @@ export interface InvocationReport {
   readonly succeeded: number;
   readonly failed: number;
   readonly released: number;
+  readonly lostLeases: number;
+  readonly expiredCompletions: number;
   readonly stopReason: "QUEUE_EMPTY" | "DEADLINE_REACHED" | "MAX_CLAIMS";
+}
+
+function ownsLease(queue: JobQueue, lease: JobLease): boolean {
+  const current = queue.get(lease.jobId);
+  return (
+    current?.status === "leased" &&
+    current.leaseOwner === lease.workerId &&
+    current.leaseToken === lease.leaseToken &&
+    current.attemptCount === lease.attemptNumber
+  );
 }
 
 export interface RunInvocationOptions {
@@ -73,7 +85,14 @@ export async function runBoundedInvocation(
   if (!Number.isInteger(maxClaims) || maxClaims < 1) {
     throw new Error("maxClaims must be a positive integer");
   }
-  const counts = { claimed: 0, succeeded: 0, failed: 0, released: 0 };
+  const counts = {
+    claimed: 0,
+    succeeded: 0,
+    failed: 0,
+    released: 0,
+    lostLeases: 0,
+    expiredCompletions: 0,
+  };
   let stopReason: InvocationReport["stopReason"] = "QUEUE_EMPTY";
 
   while (counts.claimed < maxClaims) {
@@ -127,7 +146,17 @@ export async function runBoundedInvocation(
         deadline,
       ]);
       clearTimeout(timer);
-      queue.succeed(lease, clock.now().toISOString());
+      const completedAtInstant = clock.now();
+      const completedAt = completedAtInstant.toISOString();
+      if (
+        toTimestamp(lease.leasedUntil, "lease expiry") <=
+        completedAtInstant.getTime()
+      ) {
+        queue.reconcileExpiredCompletion(lease, completedAt);
+        counts.expiredCompletions += 1;
+        continue;
+      }
+      queue.succeed(lease, completedAt);
       counts.succeeded += 1;
     } catch (error) {
       if (timer !== undefined) clearTimeout(timer);
@@ -135,19 +164,27 @@ export async function runBoundedInvocation(
       const deadlineReached =
         error instanceof InvocationDeadlineError ||
         remaining(clock, options.deadlineAt) <= 0;
-      const leaseExpired =
-        toTimestamp(lease.leasedUntil, "lease expiry") <= clock.now().getTime();
-      if (deadlineReached || leaseExpired) {
-        queue.release(
-          lease,
-          now,
-          deadlineReached ? "INVOCATION_DEADLINE" : "LEASE_EXPIRED",
-        );
-        counts.released += 1;
+      if (!ownsLease(queue, lease)) {
+        counts.lostLeases += 1;
         if (deadlineReached) {
           stopReason = "DEADLINE_REACHED";
           break;
         }
+        continue;
+      }
+      const leaseExpired =
+        toTimestamp(lease.leasedUntil, "lease expiry") <= clock.now().getTime();
+      if (deadlineReached) {
+        if (leaseExpired) {
+          queue.release(lease, now, "LEASE_EXPIRED");
+          counts.released += 1;
+        }
+        stopReason = "DEADLINE_REACHED";
+        break;
+      }
+      if (leaseExpired) {
+        queue.release(lease, now, "LEASE_EXPIRED");
+        counts.released += 1;
         continue;
       }
       const failure =

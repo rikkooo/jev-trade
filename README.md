@@ -53,7 +53,26 @@ pnpm build
 docker compose -f deploy/compose.yaml config
 ```
 
-Deployment verification adds `pnpm verify:deployment -- <origin>`, dependency audit, the read-only container build, a release receipt, and rollback evidence.
+Deployment verification adds
+`pnpm verify:deployment -- <origin> --expected-revision <git-sha> --canonical-origin <origin>`,
+dependency audit, the read-only container build, a release receipt, and rollback
+evidence. Local origins may omit the two identity arguments.
+
+Durable-mode database releases use an explicit migration-owner connection and
+never run during build or application startup:
+
+```bash
+# Inject DATABASE_MIGRATION_URL from the approved secret environment first.
+pnpm db:migrate
+pnpm db:verify
+```
+
+The migrator checksum-pins the role and ledger SQL, serializes releases with a
+transaction-scoped advisory lock, and records exact-once applications in
+`schema_migrations`. The verifier is read-only and checks schema versions,
+relations, triggers, role/procedure grants, indexes, and constraints. CI
+rehearses concurrent application, retry, ledger invariants, and checksum-drift
+failure on disposable PostgreSQL.
 
 ## Trust boundaries
 

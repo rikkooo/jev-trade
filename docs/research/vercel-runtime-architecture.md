@@ -179,7 +179,7 @@ Fixture mode is safe to deploy if all of these rules hold:
 
 - Data files are synthetic or explicitly redistributable and committed with provenance.
 - Jev results are committed fixtures tied to request/model/question versions, or generated locally during development and then frozen. A public anonymous route must not spend OpenRouter credit in fixture mode.
-- The server exposes only reads. Mutation endpoints return `503 DURABILITY_DISABLED` rather than falling back to process memory.
+- The server exposes only reads. Mutation endpoints return `503 DURABLE_WRITES_DISABLED` rather than falling back to process memory.
 - Browser-only picks use `localStorage`, are clearly labeled “saved on this browser,” and do not enter public aggregate metrics.
 - Forecast and scorecard pages say “fixture demonstration” and never label results as live, prospective, verified, or market-current.
 - `/api/health` reports safe capability flags such as `mode=fixture`, `database=false`, `durableWrites=false`, `publicMarketData=false`; it does not expose environment values.
@@ -283,4 +283,3 @@ The Vercel architecture is ready for implementation when the repository contains
 - HTTP header and cache-policy tests;
 - deployment, rollback, cron reconciliation, secret rotation, database restore, and domain runbooks;
 - a fixture deployment whose UI and health response state its non-durable, non-live status accurately.
-

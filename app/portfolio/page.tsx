@@ -38,8 +38,9 @@ function EquityCurve() {
       >
         <title id="equity-title">Synthetic paper equity curve</title>
         <desc id="equity-desc">
-          Fixture equity moved from 100,000 dollars to 100,684 dollars across
-          six marked sessions.
+          Fixture equity moved from {formatCurrency(points[0]?.equity ?? 0)} to{" "}
+          {formatCurrency(points.at(-1)?.equity ?? 0)} across {points.length}{" "}
+          marked sessions.
         </desc>
         <g className="chart-grid">
           <line x1="24" x2="676" y1="40" y2="40" />
@@ -214,11 +215,11 @@ export default function PortfolioPage() {
             <tbody>
               {FIXTURE_PORTFOLIO.events.map((event) => (
                 <tr key={event.id}>
-                  <td>{formatUtc(event.at)}</td>
+                  <td>{formatUtc(event.createdAt)}</td>
                   <td>
                     <span className="mono-tag">{event.type}</span>
                   </td>
-                  <th scope="row">{event.symbol}</th>
+                  <th scope="row">{event.symbol ?? "—"}</th>
                   <td>{event.detail}</td>
                   <td>
                     {event.cashDelta === 0

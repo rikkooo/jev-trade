@@ -17,6 +17,17 @@ export async function GET(): Promise<Response> {
         liveJudgments:
           env.APP_MODE === "live" && Boolean(env.OPENROUTER_API_KEY),
       },
+      fixtureSafety: {
+        credentialFree: ![
+          env.DATABASE_URL,
+          env.DATABASE_MIGRATION_URL,
+          env.OPENROUTER_API_KEY,
+          env.AI_GATEWAY_API_KEY,
+          env.CRON_SECRET,
+          env.MARKET_DATA_API_KEY,
+          env.OPERATOR_TOKEN,
+        ].some(Boolean),
+      },
       deployment: {
         environment: env.VERCEL_ENV ?? "local",
         revision: env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) ?? "development",

@@ -4,22 +4,30 @@ const booleanString = z
   .enum(["true", "false"])
   .transform((value) => value === "true");
 
+function optionalString(minimumLength = 1) {
+  return z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(minimumLength).optional(),
+  );
+}
+
 export const serverEnvSchema = z
   .object({
     APP_MODE: z.enum(["fixture", "live"]).default("fixture"),
     APP_ORIGIN: z.url().default("http://localhost:3000"),
     PUBLIC_MARKET_DATA: booleanString.default(false),
     DURABLE_WRITES: booleanString.default(false),
-    DATABASE_URL: z.string().min(1).optional(),
-    DATABASE_MIGRATION_URL: z.string().min(1).optional(),
-    OPENROUTER_API_KEY: z.string().min(20).optional(),
-    CRON_SECRET: z.string().min(32).optional(),
-    MARKET_DATA_API_KEY: z.string().min(1).optional(),
-    OPERATOR_TOKEN: z.string().min(32).optional(),
-    DATA_RIGHTS_RECORD_ID: z.string().min(1).optional(),
-    PUBLIC_DISCLOSURE_VERSION: z.string().min(1).optional(),
-    VERCEL_GIT_COMMIT_SHA: z.string().optional(),
-    VERCEL_ENV: z.string().optional(),
+    DATABASE_URL: optionalString(),
+    DATABASE_MIGRATION_URL: optionalString(),
+    OPENROUTER_API_KEY: optionalString(20),
+    AI_GATEWAY_API_KEY: optionalString(20),
+    CRON_SECRET: optionalString(32),
+    MARKET_DATA_API_KEY: optionalString(),
+    OPERATOR_TOKEN: optionalString(32),
+    DATA_RIGHTS_RECORD_ID: optionalString(),
+    PUBLIC_DISCLOSURE_VERSION: optionalString(),
+    VERCEL_GIT_COMMIT_SHA: optionalString(),
+    VERCEL_ENV: optionalString(),
   })
   .superRefine((env, ctx) => {
     if (env.DURABLE_WRITES && !env.DATABASE_URL) {

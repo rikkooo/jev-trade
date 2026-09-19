@@ -8,6 +8,8 @@ import type { BlindRevealReference, ForecastView } from "@/modules/view-model";
 import { BlindPick } from "./blind-pick";
 import { DecisionWorkspace } from "./decision-workspace";
 
+export const FIXTURE_REVEAL_TIMEOUT_MS = 8_000;
+
 export function BlindDecisionBoundary({
   reveal,
 }: {
@@ -16,16 +18,29 @@ export function BlindDecisionBoundary({
   const [forecast, setForecast] = useState<ForecastView | null>(null);
 
   const requestReveal = useCallback(async () => {
-    const response = await fetch(
-      `/api/v1/fixture-reveal/${encodeURIComponent(reveal.forecastId)}`,
-      { cache: "no-store", headers: { Accept: "application/json" } },
+    const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      FIXTURE_REVEAL_TIMEOUT_MS,
     );
-    if (!response.ok) throw new Error("fixture reveal failed");
-    const payload = (await response.json()) as { forecast?: ForecastView };
-    if (!payload.forecast || payload.forecast.id !== reveal.forecastId) {
-      throw new Error("fixture reveal identity mismatch");
+    try {
+      const response = await fetch(
+        `/api/v1/fixture-reveal/${encodeURIComponent(reveal.forecastId)}`,
+        {
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        },
+      );
+      if (!response.ok) throw new Error("fixture reveal failed");
+      const payload = (await response.json()) as { forecast?: ForecastView };
+      if (!payload.forecast || payload.forecast.id !== reveal.forecastId) {
+        throw new Error("fixture reveal identity mismatch");
+      }
+      setForecast(payload.forecast);
+    } finally {
+      window.clearTimeout(timeout);
     }
-    setForecast(payload.forecast);
   }, [reveal.forecastId]);
 
   return (

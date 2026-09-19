@@ -50,6 +50,29 @@ Migrations are explicit; never run them in `next build` or application startup.
 Use additive, idempotent migrations and a database lock so concurrent releases
 cannot migrate twice.
 
+`pnpm db:migrate` is the only application-owned schema entry point. It requires
+the direct migration-owner credential in `DATABASE_MIGRATION_URL`, opens one
+transaction, and acquires the transaction-scoped advisory lock
+`jev-trade/schema-migrations/v1` before inspecting or changing the schema. It
+then applies this reviewed manifest in order:
+
+| Version | Reviewed source |
+|---|---|
+| `0000_roles` | `db/init/001_roles.sql` |
+| `0001_immutable_ledger` | `db/migrations/0001_immutable_ledger.up.sql` |
+
+The runner hashes each complete source file with SHA-256. A successful
+application records the version, repository path, checksum, time, and migration
+session user in `public.schema_migrations` in the same transaction as the schema
+change. A retry skips a matching record. A changed path or checksum for an
+already-recorded version aborts the whole transaction. The application roles
+have no access to the registry.
+
+Do not edit an applied SQL file. Add a new ordered migration and update the
+reviewed manifest. Production does not use the down file; it exists only for
+disposable schema development and must never be substituted for the
+expand/migrate/contract process.
+
 1. Create or select an isolated Neon branch from the current Production point.
 2. Record the current Production schema version and application SHA.
 3. Apply the migration to the branch using the migration owner.
@@ -82,8 +105,34 @@ pnpm db:migrate
 pnpm db:verify
 ```
 
-They must fail without `DATABASE_MIGRATION_URL`, print no URL/value, acquire a
-migration lock, and be safe to retry before they are approved for Production.
+Both commands fail before connecting when `DATABASE_MIGRATION_URL` is absent and
+redact URL-shaped credentials from errors. Neither command reports the
+connection string. Successful migration output contains only applied/skipped
+version IDs. `pnpm db:verify` runs in a read-only transaction and reports only
+the applied versions and named check groups.
+
+Run both commands against the isolated release branch before promotion:
+
+```bash
+pnpm db:migrate
+pnpm db:migrate # required no-op retry; every version must be skipped
+pnpm db:verify
+```
+
+The verifier checks the registry against the checked-in file hashes, the
+`pgcrypto` extension, every critical table and projection, immutable and
+lifecycle triggers, application-role attributes, schema and relation
+privileges, the exact stored-procedure execute matrix, `SECURITY DEFINER`
+search paths, critical indexes, and validated constraints. It does not insert,
+update, or delete domain data.
+
+CI repeats the release on disposable PostgreSQL 16.10. It starts two migration
+runners concurrently to exercise the advisory lock, proves the next retry is a
+no-op, runs this verifier, executes `tests/db/ledger-foundation.sql`, verifies
+again, then corrupts a disposable registry checksum and requires the next
+migration attempt to fail without exposing a URL. A green CI database job is
+release evidence for the checked-in revision; it is not evidence that a Neon
+Production migration occurred.
 
 ### Role verification
 
@@ -238,4 +287,3 @@ For a corrupt/unavailable Production branch:
 - [ ] Recovery gap and any appended correction events recorded.
 - [ ] No URL, password, payload, or decrypted data entered the receipt.
 - [ ] Independent reviewer recorded.
-

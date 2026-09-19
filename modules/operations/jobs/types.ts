@@ -102,6 +102,7 @@ export interface JobQueue {
     readonly leaseMs: number;
   }): JobLease;
   succeed(lease: JobLease, at: string): JobOperation;
+  reconcileExpiredCompletion(lease: JobLease, at: string): JobOperation;
   fail(lease: JobLease, failure: JobFailureInput): JobOperation;
   release(lease: JobLease, at: string, errorCode?: string): JobOperation;
   operatorReplay(input: OperatorReplayInput): EnqueueResult;

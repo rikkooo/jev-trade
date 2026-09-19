@@ -1,14 +1,24 @@
 import { pathToFileURL } from "node:url";
 
+import { sha256Canonical } from "@/modules/ledger/canonical-json";
 import { verifyManualFixtureProof } from "@/modules/ledger/root-chain";
+import { computeMarketRisk } from "@/modules/policy";
 import { multiclassBrier, scoredLogLoss } from "@/modules/scorecard";
-import { getForecastById } from "@/modules/view-model";
+import {
+  buildFixtureSourceManifest,
+  formatFixtureKnownEventEvidence,
+  getForecastById,
+  rebuildFixturePolicyDecision,
+  rebuildFixtureDecisionStateHash,
+  rebuildFixtureJudgmentInputHash,
+} from "@/modules/view-model";
 
 import {
   buildFixtureManualProof,
   fixtureForecastContentHash,
   fixtureOutcomeHash,
   fixturePolicyTraceHash,
+  verifyFixtureManifestAnchor,
 } from "./fixture-proof";
 
 export interface FixtureForecastVerification {
@@ -21,12 +31,25 @@ export interface FixtureForecastVerification {
   readonly decisionStateHash: {
     readonly value: string;
     readonly formatValid: boolean;
-    readonly reconstruction: "unavailable_without_source_manifest";
+    readonly reconstruction: "verified_from_synthetic_source_manifest";
+  };
+  readonly sourceManifest: {
+    readonly version: string;
+    readonly referenceCount: number;
+    readonly manifestHash: string;
+    readonly hashMatches: true;
+  };
+  readonly judgmentInput: {
+    readonly inputHash: string | null;
+    readonly reconstructionMatches: true;
+    readonly status: "verified" | "not_applicable";
   };
   readonly policy: {
     readonly version: string;
-    readonly action: string;
-    readonly traceHash: string;
+    readonly action: string | null;
+    readonly reconstructedAction: string | null;
+    readonly reconstructionMatches: true;
+    readonly traceHash: string | null;
     readonly orderedGateCount: number;
   };
   readonly outcome: {
@@ -74,6 +97,37 @@ export function verifyFixtureForecast(
     throw new Error(`unknown fixture forecast ID: ${forecastId}`);
   }
   const contentHash = fixtureForecastContentHash(forecast);
+  const rebuiltMarketRisk = computeMarketRisk(forecast.marketRisk.inputs);
+  const componentIndex = Math.round(
+    forecast.marketRisk.components.reduce(
+      (total, component) => total + (component.value * component.weight) / 100,
+      0,
+    ),
+  );
+  if (
+    rebuiltMarketRisk.index !== forecast.marketRisk.index ||
+    rebuiltMarketRisk.band !== forecast.marketRisk.band ||
+    rebuiltMarketRisk.formulaVersion !== forecast.marketRisk.formulaVersion ||
+    componentIndex !== forecast.marketRisk.index ||
+    (forecast.policyInput?.kind === "position" &&
+      (forecast.policyInput.marketRisk.index !== forecast.marketRisk.index ||
+        forecast.policyInput.marketRisk.band !== forecast.marketRisk.band))
+  ) {
+    throw new Error(`fixture forecast ${forecastId} market-risk mismatch`);
+  }
+  const knownEventEvidence = forecast.evidence.find(
+    ({ label }) => label === "Known structured event",
+  );
+  if (
+    knownEventEvidence?.value !==
+    formatFixtureKnownEventEvidence(
+      forecast.marketRisk.inputs.sessionsToKnownEvent,
+    )
+  ) {
+    throw new Error(
+      `fixture forecast ${forecastId} known-event evidence mismatch`,
+    );
+  }
   const orderedGates = forecast.gates.every(
     (gate, index) => gate.order === index + 1,
   );
@@ -83,7 +137,54 @@ export function verifyFixtureForecast(
   if (!/^sha256:[0-9a-f]{64}$/.test(forecast.decisionStateHash)) {
     throw new Error(`fixture forecast ${forecastId} has an invalid state hash`);
   }
+  const sourceManifest = buildFixtureSourceManifest(forecast);
+  const sourceManifestHash = sha256Canonical(sourceManifest);
+  if (
+    sourceManifest.references.length !== forecast.sourceReferenceCount ||
+    sourceManifestHash !== forecast.sourceManifestHash
+  ) {
+    throw new Error(`fixture forecast ${forecastId} source manifest mismatch`);
+  }
+  const rebuiltStateHash = rebuildFixtureDecisionStateHash(forecast);
+  if (rebuiltStateHash !== forecast.decisionStateHash) {
+    throw new Error(
+      `fixture forecast ${forecastId} state reconstruction failed`,
+    );
+  }
+  const rebuiltJudgmentInputHash =
+    forecast.judgmentInputHash === null
+      ? null
+      : rebuildFixtureJudgmentInputHash(forecast);
+  if (rebuiltJudgmentInputHash !== forecast.judgmentInputHash) {
+    throw new Error(
+      `fixture forecast ${forecastId} judgment input reconstruction failed`,
+    );
+  }
+  const reconstructedDecision = rebuildFixturePolicyDecision(forecast);
+  const reconstructedAction = reconstructedDecision?.action ?? null;
+  if (
+    reconstructedAction !== forecast.action ||
+    reconstructedDecision?.policyVersion !==
+      (forecast.policyInput ? forecast.policyVersion : undefined) ||
+    sha256Canonical(reconstructedDecision?.gates ?? []) !==
+      sha256Canonical(forecast.gates)
+  ) {
+    throw new Error(
+      `fixture forecast ${forecastId} policy reconstruction failed`,
+    );
+  }
+  if (
+    !forecast.policyInput &&
+    (forecast.judgment !== null ||
+      forecast.action !== null ||
+      forecast.gates.length !== 0)
+  ) {
+    throw new Error(
+      `fixture forecast ${forecastId} invented output for an unavailable decision`,
+    );
+  }
   const proof = buildFixtureManualProof();
+  verifyFixtureManifestAnchor(proof);
   const proofResult = verifyManualFixtureProof(proof);
   const root = proof.chain[0];
   if (!root) throw new Error("fixture proof chain is empty");
@@ -93,18 +194,19 @@ export function verifyFixtureForecast(
   if (!membership || membership.contentHash !== contentHash) {
     throw new Error(`fixture forecast ${forecastId} is not in the proof root`);
   }
-  const score = forecast.outcome
-    ? {
-        brier: multiclassBrier(
-          forecast.judgment.probabilities,
-          forecast.outcome.label,
-        ),
-        logLoss: scoredLogLoss(
-          forecast.judgment.probabilities,
-          forecast.outcome.label,
-        ),
-      }
-    : null;
+  const score =
+    forecast.outcome && forecast.judgment
+      ? {
+          brier: multiclassBrier(
+            forecast.judgment.probabilities,
+            forecast.outcome.label,
+          ),
+          logLoss: scoredLogLoss(
+            forecast.judgment.probabilities,
+            forecast.outcome.label,
+          ),
+        }
+      : null;
   return {
     valid: true,
     forecastId,
@@ -115,13 +217,26 @@ export function verifyFixtureForecast(
     decisionStateHash: {
       value: forecast.decisionStateHash,
       formatValid: true,
-      reconstruction: "unavailable_without_source_manifest",
+      reconstruction: "verified_from_synthetic_source_manifest",
+    },
+    sourceManifest: {
+      version: sourceManifest.version,
+      referenceCount: sourceManifest.references.length,
+      manifestHash: sourceManifestHash,
+      hashMatches: true,
+    },
+    judgmentInput: {
+      inputHash: rebuiltJudgmentInputHash,
+      reconstructionMatches: true,
+      status: rebuiltJudgmentInputHash ? "verified" : "not_applicable",
     },
     policy: {
       version: forecast.policyVersion,
       action: forecast.action,
+      reconstructedAction,
+      reconstructionMatches: true,
       traceHash: fixturePolicyTraceHash(forecast),
-      orderedGateCount: forecast.gates.length,
+      orderedGateCount: reconstructedDecision?.gates.length ?? 0,
     },
     outcome: {
       status: forecast.outcome ? "resolved" : "unresolved",

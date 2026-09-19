@@ -28,6 +28,7 @@ export interface JudgmentView {
 }
 
 export interface MarketRiskView {
+  readonly inputs: Readonly<import("@/modules/policy").MarketRiskInputs>;
   readonly index: number;
   readonly band: MarketRiskBand;
   readonly formulaVersion: "market-risk-v1";
@@ -60,12 +61,61 @@ export type PositionRiskView =
 
 export interface GateTraceView {
   readonly order: number;
-  readonly label: string;
-  readonly result: "PASS" | "FAIL" | "NOT APPLICABLE";
-  readonly detail: string;
+  readonly id: string;
+  readonly status: "pass" | "fail" | "not_applicable";
+  readonly actual: string | number | boolean | null;
+  readonly rule: string;
+  readonly reason: string;
 }
 
+export type FixturePolicyInputView =
+  | {
+      readonly kind: "sprint";
+      readonly judgment: import("@/modules/judgment/contracts").JudgmentAnswers;
+      readonly dataQuality: {
+        readonly valid: boolean;
+        readonly fresh: boolean;
+      };
+    }
+  | {
+      readonly kind: "position";
+      readonly judgment: import("@/modules/judgment/contracts").JudgmentAnswers;
+      readonly dataQuality: {
+        readonly valid: boolean;
+        readonly fresh: boolean;
+      };
+      readonly marketRisk: {
+        readonly index: number;
+        readonly band: MarketRiskBand;
+      };
+      readonly sizing: {
+        readonly valid: boolean;
+        readonly shares?: number;
+        readonly plannedLoss?: number;
+        readonly notional?: number;
+        readonly reason?: string;
+      };
+      readonly position: {
+        readonly stopPrice: number;
+        readonly completedSessionLow: number;
+        readonly eligibleSessionsHeld: number;
+        readonly horizonSessions: number;
+        readonly consecutiveHoldFailures: number;
+      } | null;
+    };
+
 export interface TimelineEventView {
+  readonly kind:
+    | "source_ready"
+    | "state_frozen"
+    | "judgment_recorded"
+    | "policy_applied"
+    | "forecast_published"
+    | "data_incomplete"
+    | "judgment_failed"
+    | "outcome_resolved"
+    | "forecast_voided"
+    | "outcome_corrected";
   readonly at: string;
   readonly label: string;
   readonly detail: string;
@@ -86,16 +136,19 @@ export interface ForecastView {
   readonly policyVersion: "paper-policy-v1";
   readonly methodologyVersion: "methodology-v1.0";
   readonly decisionStateHash: string;
+  readonly judgmentInputHash: string | null;
+  readonly sourceManifestHash: string;
   readonly sourceReferenceCount: number;
   readonly sourceFreshness: string;
   readonly displayState: DisplayState;
-  readonly forecastStatus: "PUBLISHED" | "RESOLVED" | "VOID";
+  readonly forecastStatus: "NOT_PUBLISHED" | "PUBLISHED" | "RESOLVED" | "VOID";
   readonly prospectiveStatus: "FIXTURE — NOT SCORED";
   readonly action:
-    "ENTER" | "HOLD" | "EXIT" | "WAIT" | "UP" | "FLAT" | "DOWN" | "PASS";
+    "ENTER" | "HOLD" | "EXIT" | "WAIT" | "UP" | "FLAT" | "DOWN" | "PASS" | null;
   readonly price: number;
   readonly sessionChangePercent: number;
-  readonly judgment: JudgmentView;
+  readonly judgment: JudgmentView | null;
+  readonly policyInput: FixturePolicyInputView | null;
   readonly marketRisk: MarketRiskView;
   readonly positionRisk: PositionRiskView;
   readonly chart: readonly ChartPoint[];
@@ -133,7 +186,12 @@ export interface StockSummaryView {
   readonly marketRiskBand: MarketRiskBand | null;
   readonly displayState: DisplayState;
   readonly forecastId: string;
+  readonly cutoffAt: string;
+  readonly latestMarketSession: string;
+  readonly modelVersion: ForecastView["modelVersion"];
+  readonly policyVersion: ForecastView["policyVersion"];
   readonly blind: boolean;
+  readonly decisionAvailable: boolean;
   readonly dataKind: "synthetic_fixture";
 }
 
@@ -178,11 +236,14 @@ export interface PortfolioView {
   }[];
   readonly events: readonly {
     readonly id: string;
-    readonly at: string;
-    readonly type: string;
-    readonly symbol: string;
+    readonly createdAt: string;
+    readonly type: import("@/modules/ledger/types").PaperEventType;
+    readonly symbol?: string;
+    readonly forecastId?: string;
     readonly detail: string;
     readonly cashDelta: number;
+    readonly sharesDelta: number;
+    readonly price?: number;
   }[];
   readonly equityCurve: readonly {
     readonly session: string;

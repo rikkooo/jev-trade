@@ -295,6 +295,69 @@ describe("OpenRouterJevProvider", () => {
     );
   });
 
+  it("times out and retries when a successful response body stalls", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull: () => new Promise<void>(() => undefined),
+          }),
+          { status: 200 },
+        ),
+    );
+    const pending = new OpenRouterJevProvider({
+      apiKey: API_KEY,
+      fetcher,
+      timeoutMs: 2,
+      maxAttempts: 2,
+      sleeper: async () => undefined,
+    })
+      .evaluate(request())
+      .catch((caught: unknown) => caught);
+    const outcome = await Promise.race([
+      pending,
+      new Promise<"STALLED">((resolve) =>
+        setTimeout(() => resolve("STALLED"), 50),
+      ),
+    ]);
+
+    expect(outcome).not.toBe("STALLED");
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(outcome).toMatchObject({ code: "TIMEOUT", retryable: true });
+  });
+
+  it("preserves caller cancellation while a successful body is stalled", async () => {
+    const fetcher = vi.fn(
+      async () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull: () => new Promise<void>(() => undefined),
+          }),
+          { status: 200 },
+        ),
+    );
+    const caller = new AbortController();
+    const pending = new OpenRouterJevProvider({
+      apiKey: API_KEY,
+      fetcher,
+      timeoutMs: 100,
+    })
+      .evaluate(request(), { signal: caller.signal })
+      .catch((caught: unknown) => caught);
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledOnce());
+    caller.abort("private caller reason");
+    const outcome = await Promise.race([
+      pending,
+      new Promise<"STALLED">((resolve) =>
+        setTimeout(() => resolve("STALLED"), 50),
+      ),
+    ]);
+
+    expect(outcome).not.toBe("STALLED");
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(outcome).toMatchObject({ code: "CANCELED", retryable: false });
+  });
+
   it("does not retry malformed success bodies or unexpected models", async () => {
     for (const body of ["<html>bad</html>", validResponse("typesafe/other")]) {
       const fetcher = vi.fn(async () => response(body));
@@ -326,8 +389,18 @@ describe("OpenRouterJevProvider", () => {
       fetcher,
       maxResponseBytes: 1024,
     });
-    await expect(provider.evaluate(request())).rejects.toMatchObject({
+    const error = await provider
+      .evaluate(request())
+      .catch((caught: unknown) => caught);
+    expect(error).toMatchObject({
       code: "INVALID_RESPONSE",
+      attempts: [
+        expect.objectContaining({
+          attempt: 1,
+          code: "INVALID_RESPONSE",
+          status: 200,
+        }),
+      ],
     });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });

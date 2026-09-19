@@ -82,17 +82,20 @@ Expected `/api/health` capability values:
 {
   "mode": "fixture",
   "capabilities": {
+    "database": false,
     "durableWrites": false,
     "publicMarketData": false,
     "liveJudgments": false
+  },
+  "fixtureSafety": {
+    "credentialFree": true
   }
 }
 ```
 
-`capabilities.database` can be `false` or `true` depending on whether the URL is
-passed, but it does not authorize writes. Exercise the desktop and 400-pixel
-browser journeys, reload the app, and verify any visitor pick is labeled as saved
-only in that browser.
+The web process must not receive a database URL in fixture mode. Exercise the
+desktop and 400-pixel browser journeys, reload the app, and verify any visitor
+pick is labeled as saved only in that browser.
 
 Inspect logs for errors and redaction without copying the full log into a
 receipt:
@@ -138,15 +141,18 @@ Vercel dashboard or `vercel env add`:
 | `DURABLE_WRITES` | `false` |
 | `APP_ORIGIN` | exact HTTPS deployment/canonical origin for that environment |
 
-Remove `OPENROUTER_API_KEY`, `MARKET_DATA_API_KEY`, `DATABASE_URL`,
-`DATABASE_MIGRATION_URL`, `CRON_SECRET`, and `OPERATOR_TOKEN` from a fixture-only
-environment. Merely leaving a feature flag false is weaker than removing an
-unneeded credential.
+Remove `OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY`, `MARKET_DATA_API_KEY`,
+`DATABASE_URL`, `DATABASE_MIGRATION_URL`, `CRON_SECRET`, and `OPERATOR_TOKEN`
+from a fixture-only environment. Merely leaving a feature flag false is weaker
+than removing an unneeded credential. Record the environment-variable names
+from `vercel env ls`; do not record values.
 
 Store the preview URL in a shell variable and verify it:
 
 ```bash
 preview_url='https://<PREVIEW-DEPLOYMENT-HOST>'
+canonical_origin='https://<CANONICAL-ORIGIN>'
+reviewed_sha="$(git rev-parse HEAD)"
 curl --fail --silent --show-error "$preview_url/health/live"
 curl --fail --silent --show-error "$preview_url/api/health" | jq .
 curl --fail --silent --show-error --head "$preview_url/" | sed -n '1,30p'
@@ -165,7 +171,9 @@ Expected results:
 Run the automated form of these checks as well:
 
 ```bash
-pnpm verify:deployment -- "$preview_url"
+pnpm verify:deployment -- "$preview_url" \
+  --expected-revision "$reviewed_sha" \
+  --canonical-origin "$canonical_origin"
 ```
 
 ## Vercel production fixture deployment
@@ -181,10 +189,14 @@ domain is assigned or promoted:
 
 ```bash
 production_url='https://<IMMUTABLE-PRODUCTION-DEPLOYMENT-HOST>'
+canonical_origin='https://<CANONICAL-ORIGIN>'
+reviewed_sha="$(git rev-parse HEAD)"
 curl --fail --silent --show-error "$production_url/health/live"
 curl --fail --silent --show-error "$production_url/api/health" | jq .
 curl --fail --silent --show-error --head "$production_url/" | sed -n '1,30p'
-pnpm verify:deployment -- "$production_url"
+pnpm verify:deployment -- "$production_url" \
+  --expected-revision "$reviewed_sha" \
+  --canonical-origin "$canonical_origin"
 ```
 
 If the custom domain already points to this project, repeat the same checks
@@ -198,8 +210,9 @@ ownership and DNS changes remain with the project owner.
       image build recorded as pass.
 - [ ] `/health/live` and `/api/health` verified locally, on Preview, and on the
       immutable Production URL.
-- [ ] `mode=fixture`, `durableWrites=false`, `publicMarketData=false`, and
-      `liveJudgments=false` observed.
+- [ ] `mode=fixture`, `database=false`, `durableWrites=false`,
+      `publicMarketData=false`, `liveJudgments=false`, and
+      `fixtureSafety.credentialFree=true` observed.
 - [ ] Public pages show synthetic/fixture and browser-local disclosures.
 - [ ] No external key was needed or available to the fixture runtime.
 - [ ] Mutation/Cron behavior failed closed.

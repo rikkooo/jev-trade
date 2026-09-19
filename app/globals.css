@@ -923,6 +923,11 @@ p {
   flex: 0 0 auto;
   width: 13px;
 }
+.forecast-card-meta div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
 .card-links {
   display: flex;
   align-items: center;

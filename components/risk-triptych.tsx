@@ -10,6 +10,7 @@ export function RiskTriptych({
   readonly forecast: ForecastView;
 }) {
   const { judgment, marketRisk, positionRisk } = forecast;
+  if (!judgment) return null;
   return (
     <section aria-labelledby="risk-concepts-title">
       <div className="section-heading">

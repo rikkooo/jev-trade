@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 
-import { validateDispatchEnvelope } from "./dispatch";
+import { verifyAndSerializeDispatchArtifact } from "./dispatch";
 
 interface PublishedRootArtifact {
   readonly rootHash?: unknown;
@@ -11,11 +11,30 @@ async function readJson(path: string): Promise<unknown> {
 }
 
 async function main(): Promise<void> {
-  const [payloadPath, previousArtifactPath] = process.argv.slice(2);
+  const [payloadPath, ...arguments_] = process.argv.slice(2);
   if (!payloadPath) {
     throw new Error(
-      "usage: verify-dispatch.ts <dispatch.json> [previous-ledger-root.json]",
+      "usage: verify-dispatch.ts <dispatch.json> [--allow-expired-for-archive] [--previous <head.json>] [--existing <root.json>]",
     );
+  }
+  let allowExpiredForArchive = false;
+  let previousArtifactPath: string | undefined;
+  let existingArtifactPath: string | undefined;
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    if (argument === "--allow-expired-for-archive") {
+      allowExpiredForArchive = true;
+      continue;
+    }
+    if (argument === "--previous" || argument === "--existing") {
+      const path = arguments_[index + 1];
+      if (!path) throw new Error(`${argument} requires a file path`);
+      if (argument === "--previous") previousArtifactPath = path;
+      else existingArtifactPath = path;
+      index += 1;
+      continue;
+    }
+    throw new Error(`unknown argument ${argument}`);
   }
   const payload = await readJson(payloadPath);
   let previousPublishedRootHash: string | null = null;
@@ -28,12 +47,17 @@ async function main(): Promise<void> {
     }
     previousPublishedRootHash = previous.rootHash;
   }
-  const verified = validateDispatchEnvelope(payload, {
-    previousPublishedRootHash,
-    observedAt: new Date().toISOString(),
-  });
+  const existingPublishedRootBytes = existingArtifactPath
+    ? await readFile(existingArtifactPath, "utf8")
+    : undefined;
+  const observedAt = new Date().toISOString();
   process.stdout.write(
-    `${JSON.stringify({ ...verified, verifiedAt: new Date().toISOString() }, null, 2)}\n`,
+    verifyAndSerializeDispatchArtifact(payload, {
+      previousPublishedRootHash,
+      observedAt,
+      allowExpiredForArchive,
+      existingPublishedRootBytes,
+    }),
   );
 }
 

@@ -10,6 +10,17 @@ describe("parseServerEnv", () => {
     });
   });
 
+  it("treats blank optional values from the example file as absent", () => {
+    expect(
+      parseServerEnv({
+        DATABASE_URL: "",
+        OPENROUTER_API_KEY: "",
+        AI_GATEWAY_API_KEY: "",
+        CRON_SECRET: "",
+      }),
+    ).toMatchObject({ APP_MODE: "fixture" });
+  });
+
   it("names missing durable-write configuration without values", () => {
     expect(() => parseServerEnv({ DURABLE_WRITES: "true" })).toThrow(
       "DATABASE_URL: is required when DURABLE_WRITES=true",

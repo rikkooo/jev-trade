@@ -3,6 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 import { useCallback, useState } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -14,11 +15,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getForecastById } from "@/modules/view-model";
 
 import { AnalyticsConsent } from "./analytics-consent";
-import { BlindDecisionBoundary } from "./blind-decision-boundary";
+import {
+  BlindDecisionBoundary,
+  FIXTURE_REVEAL_TIMEOUT_MS,
+} from "./blind-decision-boundary";
 import { BlindPick } from "./blind-pick";
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -101,6 +106,64 @@ describe("BlindPick", () => {
       window.localStorage.getItem("jev-trade.pick.01K5D3JEVACME5SPRINT0002"),
     ).toBeNull();
   });
+
+  it("never re-enables a pick after a persisted reveal fails to restore", async () => {
+    const forecastId = "01K5D3JEVACME5SPRINT0003";
+    window.localStorage.setItem(`jev-trade.reveal.${forecastId}`, "true");
+    render(
+      <BlindPickHarness
+        forecastId={forecastId}
+        symbol="ACME"
+        onReveal={vi.fn().mockRejectedValue(new Error("temporary outage"))}
+      />,
+    );
+
+    await screen.findByRole("alert");
+    const up = screen.getByRole("button", { name: /pick up/i });
+    expect(up).toBeDisabled();
+    fireEvent.click(up);
+    expect(
+      window.localStorage.getItem(`jev-trade.pick.${forecastId}`),
+    ).toBeNull();
+  });
+
+  it("stays usable when browser storage is unavailable", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("Storage is blocked", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Storage is blocked", "SecurityError");
+    });
+
+    const { unmount } = render(
+      <BlindPickHarness
+        forecastId="01K5D3JEVACME5SPRINT0004"
+        symbol="ACME"
+        onReveal={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+
+    const up = await screen.findByRole("button", { name: /pick up/i });
+    expect(up).toBeEnabled();
+    fireEvent.click(up);
+    expect(screen.getAllByRole("status")[0]).toHaveTextContent(
+      "Your frozen pick: UP",
+    );
+    expect(screen.getByText(/open page only/i)).toBeInTheDocument();
+
+    unmount();
+    render(
+      <BlindPickHarness
+        forecastId="01K5D3JEVACME5SPRINT0004"
+        symbol="ACME"
+        onReveal={vi.fn().mockResolvedValue(undefined)}
+      />,
+    );
+    expect(
+      await screen.findByRole("button", { name: /pick up/i }),
+    ).toBeEnabled();
+    expect(screen.queryByText(/Your frozen pick: UP/i)).not.toBeInTheDocument();
+  });
 });
 
 describe("BlindDecisionBoundary", () => {
@@ -139,9 +202,67 @@ describe("BlindDecisionBoundary", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/code-owned policy action/i)).toBeInTheDocument();
   });
+
+  it("times out a stalled reveal, preserves the pick, and permits retry", async () => {
+    vi.useFakeTimers();
+    const forecast = getForecastById("01K5D3JEVACME5SPRINT0001");
+    if (!forecast) throw new Error("fixture forecast missing");
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce((_url: string, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("Timed out", "AbortError")),
+          );
+        });
+      })
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ forecast }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <BlindDecisionBoundary
+        reveal={{ forecastId: forecast.id, symbol: forecast.symbol }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /pick down/i }));
+    fireEvent.click(screen.getByRole("button", { name: /reveal Jev/i }));
+    await act(() => vi.advanceTimersByTimeAsync(FIXTURE_REVEAL_TIMEOUT_MS));
+    expect(screen.getByRole("alert")).toHaveTextContent(/could not be loaded/i);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Your frozen pick: DOWN/i,
+    );
+
+    vi.useRealTimers();
+    fireEvent.click(screen.getByRole("button", { name: /reveal Jev/i }));
+    expect(
+      await screen.findByText(/UP leads the distribution/i),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("AnalyticsConsent", () => {
+  it("keeps the app usable when browser storage throws", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("Storage is blocked", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("Storage is blocked", "SecurityError");
+    });
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("Storage is blocked", "SecurityError");
+    });
+
+    render(<AnalyticsConsent />);
+    fireEvent.click(screen.getByRole("button", { name: /decline analytics/i }));
+    expect(screen.getByText(/Analytics are off/i)).toBeInTheDocument();
+  });
+
   it("declines without generating an analytics identifier", () => {
     render(<AnalyticsConsent />);
 

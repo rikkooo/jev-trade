@@ -58,6 +58,8 @@ describe("internal cron route boundary", () => {
       succeeded: 2,
       failed: 0,
       released: 0,
+      lostLeases: 0,
+      expiredCompletions: 0,
       stopReason: "QUEUE_EMPTY",
     });
     const response = await handleInternalCronRequest(

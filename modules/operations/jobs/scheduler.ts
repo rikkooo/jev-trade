@@ -16,6 +16,10 @@ export interface EodEnqueueInput {
   readonly now: string;
   readonly sessions: readonly ExchangeSessionWindow[];
   readonly symbols: readonly SymbolBarAvailability[];
+  /** Durable cursor per symbol. A null or absent cursor bootstraps that symbol at the latest due session. */
+  readonly lastScheduledSessionBySymbol?: Readonly<
+    Record<string, string | null>
+  >;
   readonly maxAttempts: number;
 }
 
@@ -23,6 +27,26 @@ export interface DelayedBar {
   readonly symbol: string;
   readonly expectedSession: string;
   readonly latestCompletedBarSession: string | null;
+}
+
+export interface MissedEodSession {
+  readonly idempotencyKey: string;
+  readonly symbol: string;
+  readonly session: string;
+  readonly expectedBarAt: string;
+  readonly reason: "MISSED_SCHEDULER_WINDOW";
+  readonly prospectiveEligible: false;
+}
+
+export interface EodEnqueueResult {
+  readonly targetSession: string | null;
+  /** Persist atomically with the enqueued jobs and per-symbol missed-session records. */
+  readonly nextHighWaterSessionBySymbol: Readonly<
+    Record<string, string | null>
+  >;
+  readonly enqueued: readonly JobOperation[];
+  readonly delayed: readonly DelayedBar[];
+  readonly missed: readonly MissedEodSession[];
 }
 
 const ISO_SESSION = /^\d{4}-\d{2}-\d{2}$/;
@@ -98,26 +122,34 @@ export function nthEligibleSession(
 export function enqueueAvailableEodEvaluations(
   queue: JobQueue,
   input: EodEnqueueInput,
-): {
-  readonly targetSession: string | null;
-  readonly enqueued: readonly JobOperation[];
-  readonly delayed: readonly DelayedBar[];
-} {
+): EodEnqueueResult {
   const nowMs = toTimestamp(input.now, "scheduler time");
   const sessions = validateSessions(input.sessions);
-  const target = [...sessions]
-    .reverse()
-    .find(
-      (window) =>
-        toTimestamp(window.expectedBarAt, "session expectedBarAt") <= nowMs,
-    );
-  if (target === undefined) {
-    return { targetSession: null, enqueued: [], delayed: [] };
+  const lastScheduledSessionBySymbol = input.lastScheduledSessionBySymbol ?? {};
+  for (const [symbol, session] of Object.entries(
+    lastScheduledSessionBySymbol,
+  )) {
+    if (
+      !/^[A-Z][A-Z0-9.-]{0,14}$/.test(symbol) ||
+      (session !== null && !ISO_SESSION.test(session))
+    ) {
+      throw new Error(
+        "scheduled symbol cursors must use normalized symbols and ISO dates",
+      );
+    }
   }
-
+  const available = sessions.filter(
+    (window) =>
+      toTimestamp(window.expectedBarAt, "session expectedBarAt") <= nowMs,
+  );
   const enqueued: JobOperation[] = [];
   const delayed: DelayedBar[] = [];
+  const missed: MissedEodSession[] = [];
+  const nextHighWaterSessionBySymbol: Record<string, string | null> = {
+    ...lastScheduledSessionBySymbol,
+  };
   const seen = new Set<string>();
+  let targetSession: string | null = null;
   for (const availability of [...input.symbols].sort((left, right) =>
     left.symbol.localeCompare(right.symbol),
   )) {
@@ -126,12 +158,41 @@ export function enqueueAvailableEodEvaluations(
       throw new Error("symbols must be unique normalized market symbols");
     }
     seen.add(symbol);
+    const lastScheduledSession = lastScheduledSessionBySymbol[symbol] ?? null;
+    const due =
+      lastScheduledSession === null
+        ? available.slice(-1)
+        : available.filter((window) => window.session > lastScheduledSession);
+    const target = due.at(-1);
+    if (target === undefined) {
+      nextHighWaterSessionBySymbol[symbol] = lastScheduledSession;
+      continue;
+    }
+    targetSession = target.session;
+    const missedForSymbol = due
+      .slice(0, -1)
+      .filter(
+        (window) =>
+          queue.getByOperationKey(`eod:${symbol}:${window.session}`) ===
+          undefined,
+      )
+      .map((window) => ({
+        idempotencyKey: `eod-missed:${symbol}:${window.session}`,
+        symbol,
+        session: window.session,
+        expectedBarAt: window.expectedBarAt,
+        reason: "MISSED_SCHEDULER_WINDOW" as const,
+        prospectiveEligible: false as const,
+      }));
+    missed.push(...missedForSymbol);
     if (availability.latestCompletedBarSession !== target.session) {
       delayed.push({
         symbol,
         expectedSession: target.session,
         latestCompletedBarSession: availability.latestCompletedBarSession,
       });
+      nextHighWaterSessionBySymbol[symbol] =
+        due.at(-2)?.session ?? lastScheduledSession;
       continue;
     }
     enqueued.push(
@@ -143,8 +204,15 @@ export function enqueueAvailableEodEvaluations(
         maxAttempts: input.maxAttempts,
       }).job,
     );
+    nextHighWaterSessionBySymbol[symbol] = target.session;
   }
-  return { targetSession: target.session, enqueued, delayed };
+  return {
+    targetSession,
+    nextHighWaterSessionBySymbol,
+    enqueued,
+    delayed,
+    missed,
+  };
 }
 
 export function enqueueOpenPositionMonitoring(
@@ -313,6 +381,9 @@ export function enqueueCorrectionReplays(
     const original = queue.get(operationId);
     if (original === undefined)
       throw new Error("affected operation is missing");
+    // Reusing an idempotency key represents delivery of the same operator
+    // request and must return its original job, regardless of terminal state.
+    // A fresh correction replay requires a fresh idempotency key.
     return queue.enqueue({
       operationKey: `correction-replay:${idempotencyKey}:${original.id}`,
       kind: "correction_replay",

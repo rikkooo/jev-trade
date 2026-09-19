@@ -13,11 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm
@@ -30,16 +30,115 @@ jobs:
       - run: pnpm audit --prod
       - run: pnpm build
 
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16.10-alpine
+        env:
+          POSTGRES_DB: jev_trade_ci
+          POSTGRES_USER: jev_migrator
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U jev_migrator -d jev_trade_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_MIGRATION_URL: postgres://jev_migrator:ci-only@127.0.0.1:5432/jev_trade_ci
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Rehearse locked, exact-once migration application
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --silent db:migrate > /tmp/migration-a.json &
+          migration_a_pid=$!
+          pnpm --silent db:migrate > /tmp/migration-b.json &
+          migration_b_pid=$!
+          wait "$migration_a_pid"
+          wait "$migration_b_pid"
+          node -e '
+            const fs = require("node:fs");
+            const runs = ["a", "b"].map((name) =>
+              JSON.parse(fs.readFileSync(`/tmp/migration-${name}.json`, "utf8"))
+            );
+            const applied = runs.flatMap((run) => run.applied);
+            const skipped = runs.flatMap((run) => run.skipped);
+            if (applied.length !== 2 || skipped.length !== 2) process.exit(1);
+            if (new Set(applied).size !== 2 || new Set(skipped).size !== 2) process.exit(1);
+          '
+      - name: Prove migration retry is a no-op
+        run: |
+          pnpm --silent db:migrate > /tmp/migration-retry.json
+          node -e '
+            const run = JSON.parse(require("node:fs").readFileSync("/tmp/migration-retry.json", "utf8"));
+            if (run.applied.length !== 0 || run.skipped.length !== 2) process.exit(1);
+          '
+      - name: Verify released database
+        run: pnpm db:verify
+      - name: Exercise ledger roles and invariants
+        run: psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 -f tests/db/ledger-foundation.sql
+      - name: Verify database after ledger exercise
+        run: pnpm db:verify
+      - name: Prove PUBLIC relation grants fail closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+            -c "GRANT SELECT ON public.forecasts TO PUBLIC"
+          if pnpm --silent db:verify > /tmp/unexpected-public-grant.json 2> /tmp/public-grant-error.txt; then
+            exit 1
+          fi
+          grep -Fq "direct relation privileges" /tmp/public-grant-error.txt
+          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+            -c "REVOKE SELECT ON public.forecasts FROM PUBLIC"
+          pnpm db:verify
+          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+            -c "GRANT SELECT (symbol) ON public.forecasts TO PUBLIC"
+          if pnpm --silent db:verify > /tmp/unexpected-public-column-grant.json 2> /tmp/public-column-grant-error.txt; then
+            exit 1
+          fi
+          grep -Fq "direct column privileges" /tmp/public-column-grant-error.txt
+          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+            -c "REVOKE SELECT (symbol) ON public.forecasts FROM PUBLIC"
+          pnpm db:verify
+      - name: Prove reviewed-source drift fails closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 \
+            -c "UPDATE public.schema_migrations SET checksum = repeat('0', 64) WHERE version = '0001_immutable_ledger'"
+          if pnpm --silent db:migrate > /tmp/unexpected-migration.json 2> /tmp/migration-error.txt; then
+            exit 1
+          fi
+          node -e '
+            const message = require("node:fs").readFileSync("/tmp/migration-error.txt", "utf8");
+            if (!message.includes("checksum or file identity")) process.exit(1);
+            if (message.includes("postgres://")) process.exit(1);
+          '
+
   browser:
-    needs: verify
+    needs: [verify, database]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 12.4.2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: pnpm

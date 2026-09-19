@@ -70,6 +70,9 @@ interface MutableAttempt {
   events: JobAttemptEventRecord[];
 }
 
+const MIN_LEASE_EXPIRY_BACKOFF_MS = 1_000;
+const MAX_LEASE_EXPIRY_BACKOFF_MS = 300_000;
+
 function nonEmpty(value: string, label: string): string {
   const normalized = value.trim();
   if (normalized.length === 0) throw new Error(`${label} is required`);
@@ -87,12 +90,16 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-function immutableSignature(input: EnqueueJobInput): string {
+function immutableSignature(
+  input: Pick<
+    EnqueueJobInput,
+    "operationKey" | "kind" | "payload" | "maxAttempts" | "replayOfOperationId"
+  >,
+): string {
   return canonicalJson({
     operationKey: input.operationKey,
     kind: input.kind,
     payload: input.payload,
-    availableAt: input.availableAt,
     maxAttempts: input.maxAttempts,
     replayOfOperationId: input.replayOfOperationId ?? null,
   });
@@ -136,7 +143,6 @@ export class InMemoryJobQueue implements JobQueue {
           operationKey: existing.operationKey,
           kind: existing.kind,
           payload: existing.payload,
-          availableAt: existing.scheduledAt,
           maxAttempts: existing.maxAttempts,
           replayOfOperationId: existing.replayOfOperationId,
         })
@@ -190,13 +196,15 @@ export class InMemoryJobQueue implements JobQueue {
         job.leasedUntil !== undefined &&
         toTimestamp(job.leasedUntil, "lease expiry") <= nowMs
       ) {
+        const canRetry = job.attemptCount < job.maxAttempts;
+        const retryAt = canRetry ? this.#retryAt(job, nowMs, true) : now;
         this.#finalizeActiveAttempt(job, now, "LEASE_EXPIRED");
         this.#clearLease(job);
-        if (job.attemptCount >= job.maxAttempts) {
+        if (!canRetry) {
           job.status = "dead_letter";
         } else {
           job.status = "retryable";
-          job.availableAt = now;
+          job.availableAt = retryAt;
         }
         job.updatedAt = now;
       }
@@ -263,6 +271,35 @@ export class InMemoryJobQueue implements JobQueue {
     return clone(job);
   }
 
+  reconcileExpiredCompletion(lease: JobLease, at: string): JobOperation {
+    const completedAt = toIsoInstant(at, "completion reconciliation time");
+    const job = this.#requireLeaseToken(lease);
+    const completedAtMs = toTimestamp(
+      completedAt,
+      "completion reconciliation time",
+    );
+    if (
+      job.leasedUntil === undefined ||
+      toTimestamp(job.leasedUntil, "lease expiry") > completedAtMs
+    ) {
+      throw new JobLeaseError("lease is still live at completion");
+    }
+    this.#completeActiveAttempt(
+      job,
+      completedAt,
+      "failed",
+      "COMPLETED_AFTER_LEASE_EXPIRY",
+    );
+    // The handler may already have committed external side effects after it
+    // lost ownership. Keep this terminal for operator inspection instead of
+    // automatically running the same work again.
+    job.status = "dead_letter";
+    job.availableAt = completedAt;
+    job.updatedAt = completedAt;
+    this.#clearLease(job);
+    return clone(job);
+  }
+
   fail(lease: JobLease, failure: JobFailureInput): JobOperation {
     const failedAt = toIsoInstant(failure.at, "failure time");
     const job = this.#requireLiveLease(
@@ -272,15 +309,12 @@ export class InMemoryJobQueue implements JobQueue {
     const code = nonEmpty(failure.code, "failure code");
     if (failure.details !== undefined) canonicalJson(failure.details);
     const canRetry = failure.retryable && job.attemptCount < job.maxAttempts;
-    const retryDelay = canRetry ? this.#retryDelayMs(job.attemptCount) : 0;
-    if (!Number.isFinite(retryDelay) || retryDelay < 0) {
-      throw new Error("retry delay must be a non-negative finite number");
-    }
+    const retryAt = canRetry
+      ? this.#retryAt(job, toTimestamp(failedAt, "failure time"), false)
+      : failedAt;
     this.#completeActiveAttempt(job, failedAt, "failed", code, failure.details);
     job.status = canRetry ? "retryable" : "dead_letter";
-    job.availableAt = new Date(
-      toTimestamp(failedAt, "failure time") + retryDelay,
-    ).toISOString();
+    job.availableAt = retryAt;
     job.updatedAt = failedAt;
     this.#clearLease(job);
     return clone(job);
@@ -293,15 +327,22 @@ export class InMemoryJobQueue implements JobQueue {
   ): JobOperation {
     const releasedAt = toIsoInstant(at, "release time");
     const job = this.#requireLeaseToken(lease);
+    const canRetry = job.attemptCount < job.maxAttempts;
+    const retryAt = canRetry
+      ? this.#retryAt(
+          job,
+          toTimestamp(releasedAt, "release time"),
+          errorCode === "LEASE_EXPIRED",
+        )
+      : releasedAt;
     this.#completeActiveAttempt(
       job,
       releasedAt,
       "failed",
       nonEmpty(errorCode, "errorCode"),
     );
-    job.status =
-      job.attemptCount < job.maxAttempts ? "retryable" : "dead_letter";
-    job.availableAt = releasedAt;
+    job.status = canRetry ? "retryable" : "dead_letter";
+    job.availableAt = retryAt;
     job.updatedAt = releasedAt;
     this.#clearLease(job);
     return clone(job);
@@ -444,5 +485,19 @@ export class InMemoryJobQueue implements JobQueue {
     delete job.leaseOwner;
     delete job.leaseToken;
     delete job.leasedUntil;
+  }
+
+  #retryAt(job: MutableJob, atMs: number, leaseExpired: boolean): string {
+    const configured = this.#retryDelayMs(job.attemptCount);
+    if (!Number.isFinite(configured) || configured < 0) {
+      throw new Error("retry delay must be a non-negative finite number");
+    }
+    const delay = leaseExpired
+      ? Math.min(
+          Math.max(configured, MIN_LEASE_EXPIRY_BACKOFF_MS),
+          MAX_LEASE_EXPIRY_BACKOFF_MS,
+        )
+      : configured;
+    return new Date(atMs + delay).toISOString();
   }
 }
