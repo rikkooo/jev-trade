@@ -3,8 +3,22 @@ import type {
   ProviderMarketData,
   SessionCalendar,
 } from "@/modules/market/contracts";
+import { createHash } from "node:crypto";
 
 const DAY_MS = 86_400_000;
+
+function hash(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function source(sourceId: string, availableAt: string) {
+  return {
+    sourceId,
+    sourceRevision: `${sourceId}-v1`,
+    sourceHash: hash(`${sourceId}-v1`),
+    availableAt,
+  };
+}
 
 function isoDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -40,7 +54,10 @@ function makeBars(
       symbol,
       session,
       completed: true,
-      sourceRevision: `fixture-${session}`,
+      ...source(
+        `fixture:daily:${symbol}:${session}`,
+        `${session}T21:30:00.000Z`,
+      ),
       adjusted: { open, high, low, close, volume },
       unadjusted: { open, high, low, close, volume },
     };
@@ -68,7 +85,7 @@ export function buildMarketFixture(
     exchange: "XNAS",
     timezone: "America/New_York",
     sessions: allSessions,
-    sourceRevision: "fixture-calendar-v1",
+    ...source("fixture:calendar:XNAS", `${cutoffSession}T20:00:00.000Z`),
   };
 
   return {
@@ -76,6 +93,7 @@ export function buildMarketFixture(
     requestedSessions: 300,
     fetchedAt: `${cutoffSession}T22:00:00.000Z`,
     sourceUpdatedAt: `${cutoffSession}T21:30:00.000Z`,
+    ...source("fixture:response:ACME", `${cutoffSession}T21:30:00.000Z`),
     instrument: {
       symbol: "ACME",
       exchange: "XNAS",
@@ -95,7 +113,7 @@ export function buildMarketFixture(
       symbol: "ACME",
       asOfSession: cutoffSession,
       completeThroughSession: allSessions.at(-1)!,
-      sourceRevision: "fixture-events-v1",
+      ...source("fixture:events:ACME", `${cutoffSession}T21:45:00.000Z`),
       events: [
         {
           id: "earnings-next",

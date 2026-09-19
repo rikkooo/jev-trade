@@ -31,7 +31,6 @@ describe("ledger integration replay", () => {
       symbol: "AAPL",
       cashDelta: 0,
       sharesDelta: 100,
-      correctionOfEventId: "paper_entry",
     });
     repo.appendPaperEvent({
       id: "paper_dividend",

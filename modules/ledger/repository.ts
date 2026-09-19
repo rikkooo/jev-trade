@@ -10,6 +10,7 @@ import type {
   LedgerState,
   MarketSnapshot,
   PaperEvent,
+  PolicyDecision,
   ProcessorTerms,
   ProviderRights,
   VisitorPick,
@@ -22,6 +23,9 @@ export interface LedgerRepository {
   insertJudgment(
     input: Omit<JudgmentRun, "contentHash" | "createdAt">,
   ): JudgmentRun;
+  insertPolicyDecision(
+    input: Omit<PolicyDecision, "contentHash" | "createdAt">,
+  ): PolicyDecision;
   publishForecast(
     input: Omit<Forecast, "createdAt">,
   ): IdempotentResult<Forecast>;

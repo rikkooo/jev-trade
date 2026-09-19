@@ -76,11 +76,11 @@ function serialize(value: unknown, seen: Set<object>): string {
   }
 }
 
-export function canonicalJson(value: JsonValue): string {
+export function canonicalJson(value: unknown): string {
   return serialize(value, new Set());
 }
 
-export function sha256Canonical(value: JsonValue): string {
+export function sha256Canonical(value: unknown): string {
   return createHash("sha256")
     .update(canonicalJson(value), "utf8")
     .digest("hex");

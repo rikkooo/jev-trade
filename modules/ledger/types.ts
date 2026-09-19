@@ -5,13 +5,36 @@ export type ForecastMode = "position" | "sprint";
 export type ForecastStatus = "published" | "resolved" | "void";
 export type Direction = "up" | "flat" | "down";
 
+export type SnapshotSourceReference = {
+  readonly sourceId: string;
+  readonly sourceRevision: string;
+  readonly sourceHash: string;
+  readonly availableAt: IsoDateTime;
+};
+
 export interface MarketSnapshot {
   readonly id: string;
   readonly symbol: string;
   readonly provider: string;
   readonly cutoffAt: IsoDateTime;
+  readonly knowledgeCutoffAt: IsoDateTime;
+  readonly providerFetchedAt: IsoDateTime;
+  readonly sourceUpdatedAt: IsoDateTime;
   readonly latestMarketSession: string;
+  readonly sourceManifest: readonly SnapshotSourceReference[];
   readonly state: JsonValue;
+  readonly contentHash: string;
+  readonly createdAt: IsoDateTime;
+}
+
+export interface PolicyDecision {
+  readonly id: string;
+  readonly judgmentId: string;
+  readonly policyVersion: string;
+  readonly action:
+    "enter" | "hold" | "exit" | "wait" | "up" | "flat" | "down" | "pass";
+  readonly gateTrace: JsonValue;
+  readonly sizing?: JsonValue;
   readonly contentHash: string;
   readonly createdAt: IsoDateTime;
 }
@@ -32,6 +55,7 @@ export interface Forecast {
   readonly publicationKey: string;
   readonly snapshotId: string;
   readonly judgmentId: string;
+  readonly policyDecisionId: string;
   readonly symbol: string;
   readonly mode: ForecastMode;
   readonly horizonSessions: number;
@@ -40,6 +64,7 @@ export interface Forecast {
   readonly modelVersion: string;
   readonly questionVersion: string;
   readonly policyVersion: string;
+  readonly deploymentSha: string;
   readonly createdAt: IsoDateTime;
 }
 
@@ -158,6 +183,7 @@ export interface ProcessorTerms {
 export interface LedgerState {
   readonly snapshots: readonly MarketSnapshot[];
   readonly judgments: readonly JudgmentRun[];
+  readonly policyDecisions: readonly PolicyDecision[];
   readonly forecasts: readonly Forecast[];
   readonly forecastEvents: readonly ForecastEvent[];
   readonly outcomes: readonly ForecastOutcome[];

@@ -21,7 +21,18 @@ function seedPublication(repo: InMemoryLedgerRepository) {
     symbol: "AAPL",
     provider: "fixture",
     cutoffAt: "2026-09-18T21:00:00.000Z",
+    knowledgeCutoffAt: "2026-09-18T23:00:00.000Z",
+    providerFetchedAt: "2026-09-18T22:00:00.000Z",
+    sourceUpdatedAt: "2026-09-18T21:30:00.000Z",
     latestMarketSession: "2026-09-18",
+    sourceManifest: [
+      {
+        sourceId: "fixture:AAPL",
+        sourceRevision: "v1",
+        sourceHash: "a".repeat(64),
+        availableAt: "2026-09-18T21:30:00.000Z",
+      },
+    ],
     state: { returns: [0.01, -0.02], risk: 41 },
   });
   const judgment = repo.insertJudgment({
@@ -34,12 +45,21 @@ function seedPublication(repo: InMemoryLedgerRepository) {
       direction: { up: 0.62, flat: 0.23, down: 0.15 },
     },
   });
+  const policy = repo.insertPolicyDecision({
+    id: "policy_01",
+    judgmentId: judgment.id,
+    policyVersion: "policy-v1",
+    action: "enter",
+    gateTrace: { eligible: true },
+    sizing: { shares: 10 },
+  });
 
   return repo.publishForecast({
     id: "forecast_01",
     publicationKey: "AAPL:2026-09-18:position:v1",
     snapshotId: snapshot.id,
     judgmentId: judgment.id,
+    policyDecisionId: policy.id,
     symbol: "AAPL",
     mode: "position",
     horizonSessions: 20,
@@ -48,6 +68,7 @@ function seedPublication(repo: InMemoryLedgerRepository) {
     modelVersion: "jev-fixture-v1",
     questionVersion: "questions-v1",
     policyVersion: "policy-v1",
+    deploymentSha: "deadbeef",
   });
 }
 
@@ -78,17 +99,107 @@ describe("immutable forecast ledger", () => {
   it("returns the frozen forecast when a publication key is replayed", () => {
     const repo = repository();
     const first = seedPublication(repo);
-    const replay = repo.publishForecast({
-      ...first.value,
-      id: "forecast_replayed",
-      publicationKey: first.value.publicationKey,
-    });
+    const samePayload = structuredClone(first.value);
+    Reflect.deleteProperty(samePayload, "createdAt");
+    const replay = repo.publishForecast(samePayload);
 
     expect(first.created).toBe(true);
     expect(replay.created).toBe(false);
     expect(replay.value.id).toBe(first.value.id);
     expect(repo.readAll().forecasts).toHaveLength(1);
     expect(repo.readAll().forecastEvents).toHaveLength(1);
+  });
+
+  it("rejects reuse of a publication key with a different immutable payload", () => {
+    const repo = repository();
+    const first = seedPublication(repo).value;
+    const samePayload = structuredClone(first);
+    Reflect.deleteProperty(samePayload, "createdAt");
+
+    expect(() =>
+      repo.publishForecast({ ...samePayload, horizonSessions: 5 }),
+    ).toThrow(LedgerConflictError);
+    expect(repo.readAll().forecasts).toHaveLength(1);
+  });
+
+  it("mirrors every durable forecast dependency identity check", () => {
+    const repo = repository();
+    const forecast = seedPublication(repo).value;
+    const payload = structuredClone(forecast);
+    Reflect.deleteProperty(payload, "createdAt");
+    const mismatches = [
+      { symbol: "MSFT" },
+      { cutoffAt: "2026-09-18T22:00:00.000Z" },
+      { latestMarketSession: "2026-09-17" },
+      { modelVersion: "jev-other" },
+      { questionVersion: "questions-v2" },
+      { policyVersion: "policy-v2" },
+      { policyDecisionId: "missing-policy" },
+    ];
+
+    for (const [index, mismatch] of mismatches.entries()) {
+      expect(() =>
+        repo.publishForecast({
+          ...payload,
+          ...mismatch,
+          id: `forecast_mismatch_${index}`,
+          publicationKey: `mismatch:${index}`,
+        }),
+      ).toThrow();
+    }
+
+    const alternateSnapshot = repo.insertSnapshot({
+      id: "snapshot_02",
+      symbol: "AAPL",
+      provider: "fixture",
+      cutoffAt: "2026-09-18T21:00:00.000Z",
+      knowledgeCutoffAt: "2026-09-18T23:00:00.000Z",
+      providerFetchedAt: "2026-09-18T22:00:00.000Z",
+      sourceUpdatedAt: "2026-09-18T21:30:00.000Z",
+      latestMarketSession: "2026-09-18",
+      sourceManifest: [
+        {
+          sourceId: "fixture:AAPL",
+          sourceRevision: "v2",
+          sourceHash: "b".repeat(64),
+          availableAt: "2026-09-18T21:30:00.000Z",
+        },
+      ],
+      state: { risk: 42 },
+    });
+    const alternateJudgment = repo.insertJudgment({
+      id: "judgment_02",
+      snapshotId: alternateSnapshot.id,
+      provider: "fixture",
+      modelVersion: payload.modelVersion,
+      questionVersion: payload.questionVersion,
+      answers: { direction: { up: 0.7, flat: 0.2, down: 0.1 } },
+    });
+    const alternatePolicy = repo.insertPolicyDecision({
+      id: "policy_02",
+      judgmentId: alternateJudgment.id,
+      policyVersion: payload.policyVersion,
+      action: "enter",
+      gateTrace: { eligible: true },
+    });
+
+    expect(() =>
+      repo.publishForecast({
+        ...payload,
+        id: "forecast_wrong_judgment_snapshot",
+        publicationKey: "mismatch:judgment-snapshot",
+        judgmentId: alternateJudgment.id,
+        policyDecisionId: alternatePolicy.id,
+      }),
+    ).toThrow(LedgerInvariantError);
+    expect(() =>
+      repo.publishForecast({
+        ...payload,
+        id: "forecast_wrong_policy_judgment",
+        publicationKey: "mismatch:policy-judgment",
+        policyDecisionId: alternatePolicy.id,
+      }),
+    ).toThrow(LedgerInvariantError);
   });
 
   it("rejects attempts to replace immutable snapshots and judgments", () => {
@@ -101,7 +212,18 @@ describe("immutable forecast ledger", () => {
         symbol: "AAPL",
         provider: "fixture",
         cutoffAt: "2026-09-18T21:00:00.000Z",
+        knowledgeCutoffAt: "2026-09-18T23:00:00.000Z",
+        providerFetchedAt: "2026-09-18T22:00:00.000Z",
+        sourceUpdatedAt: "2026-09-18T21:30:00.000Z",
         latestMarketSession: "2026-09-18",
+        sourceManifest: [
+          {
+            sourceId: "fixture:AAPL",
+            sourceRevision: "v1",
+            sourceHash: "a".repeat(64),
+            availableAt: "2026-09-18T21:30:00.000Z",
+          },
+        ],
         state: { risk: 99 },
       }),
     ).toThrow(LedgerConflictError);
@@ -115,6 +237,32 @@ describe("immutable forecast ledger", () => {
         answers: { direction: { up: 1, flat: 0, down: 0 } },
       }),
     ).toThrow(LedgerConflictError);
+  });
+
+  it("rejects durable source provenance observed after the knowledge cutoff", () => {
+    const repo = repository();
+
+    expect(() =>
+      repo.insertSnapshot({
+        id: "snapshot_future_source",
+        symbol: "AAPL",
+        provider: "fixture",
+        cutoffAt: "2026-09-18T21:00:00.000Z",
+        knowledgeCutoffAt: "2026-09-18T23:00:00.000Z",
+        providerFetchedAt: "2026-09-18T22:00:00.000Z",
+        sourceUpdatedAt: "2026-09-18T21:30:00.000Z",
+        latestMarketSession: "2026-09-18",
+        sourceManifest: [
+          {
+            sourceId: "fixture:AAPL",
+            sourceRevision: "v2",
+            sourceHash: "b".repeat(64),
+            availableAt: "2026-09-18T23:00:00.001Z",
+          },
+        ],
+        state: { risk: 41 },
+      }),
+    ).toThrow(LedgerInvariantError);
   });
 
   it("rejects backward, duplicate terminal, and orphan lifecycle events", () => {
@@ -140,17 +288,17 @@ describe("immutable forecast ledger", () => {
   it("keeps correction history and rebuilds the same active projection", () => {
     const repo = repository();
     const forecast = seedPublication(repo).value;
+    repo.appendForecastEvent({
+      forecastId: forecast.id,
+      type: "resolved",
+      reason: "fixed_horizon_reached",
+    });
     const original = repo.appendOutcome({
       id: "outcome_original",
       forecastId: forecast.id,
       realizedLabel: "up",
       adjustedReturn: 0.12,
       sourceBarHash: "a".repeat(64),
-    });
-    repo.appendForecastEvent({
-      forecastId: forecast.id,
-      type: "resolved",
-      reason: "fixed_horizon_reached",
     });
     const corrected = repo.appendOutcome({
       id: "outcome_corrected",
@@ -177,6 +325,60 @@ describe("immutable forecast ledger", () => {
     expect(current.activeOutcomeByForecast[forecast.id]?.id).toBe(corrected.id);
     expect(rebuilt).toEqual(current);
     expect(current.forecastStatusById[forecast.id]).toBe("resolved");
+  });
+
+  it("rejects an outcome until its forecast is resolved", () => {
+    const repo = repository();
+    const forecast = seedPublication(repo).value;
+
+    expect(() =>
+      repo.appendOutcome({
+        id: "outcome_too_early",
+        forecastId: forecast.id,
+        realizedLabel: "up",
+        adjustedReturn: 0.03,
+        sourceBarHash: "a".repeat(64),
+      }),
+    ).toThrow(LedgerInvariantError);
+  });
+
+  it("allows correction references only on paper correction events", () => {
+    const repo = repository();
+    repo.appendPaperEvent({
+      id: "deposit",
+      type: "deposit",
+      cashDelta: 100,
+      sharesDelta: 0,
+    });
+
+    expect(() =>
+      repo.appendPaperEvent({
+        id: "bad-mark",
+        type: "mark",
+        cashDelta: 0,
+        sharesDelta: 0,
+        correctionOfEventId: "deposit",
+      }),
+    ).toThrow(LedgerInvariantError);
+    expect(() =>
+      repo.appendPaperEvent({
+        id: "bad-correction",
+        type: "correction",
+        cashDelta: 0,
+        sharesDelta: 0,
+      }),
+    ).toThrow(LedgerInvariantError);
+
+    expect(
+      repo.appendPaperEvent({
+        id: "correction",
+        type: "correction",
+        cashDelta: -100,
+        sharesDelta: 0,
+        correctionOfEventId: "deposit",
+        reason: "operator correction",
+      }).type,
+    ).toBe("correction");
   });
 });
 
@@ -293,7 +495,13 @@ describe("jobs, picks, consent, and public gates", () => {
 
   it("fails public mode closed until provider rights and processor terms are active", () => {
     const repo = repository();
-    expect(repo.publicModeGate("2026-09-19T12:00:00.000Z")).toEqual({
+    const requirements = {
+      at: "2026-09-19T12:00:00.000Z",
+      expectedProvider: "licensed-provider",
+      expectedProcessor: "openrouter-jev",
+      requiredFields: ["daily_ohlcv"],
+    } as const;
+    expect(repo.publicModeGate(requirements)).toEqual({
       allowed: false,
       blockers: ["PROVIDER_RIGHTS_MISSING", "PROCESSOR_TERMS_MISSING"],
     });
@@ -323,7 +531,7 @@ describe("jobs, picks, consent, and public gates", () => {
       reviewedBy: "operator@example.test",
     });
 
-    expect(repo.publicModeGate("2026-09-19T12:00:00.000Z")).toEqual({
+    expect(repo.publicModeGate(requirements)).toEqual({
       allowed: true,
       blockers: [],
     });

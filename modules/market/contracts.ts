@@ -8,11 +8,17 @@ export interface Ohlcv {
   volume: number;
 }
 
-export interface MarketBar {
+export interface SourceReference {
+  sourceId: string;
+  sourceRevision: string;
+  sourceHash: string;
+  availableAt: string;
+}
+
+export interface MarketBar extends SourceReference {
   symbol: string;
   session: IsoSession;
   completed: boolean;
-  sourceRevision: string;
   adjusted: Ohlcv;
   unadjusted: Ohlcv;
 }
@@ -24,7 +30,7 @@ export interface InstrumentIdentity {
 }
 
 export type CorporateAction =
-  | {
+  | ({
       id: string;
       symbol: string;
       type: "split";
@@ -32,23 +38,20 @@ export type CorporateAction =
       status: "confirmed" | "estimated";
       splitRatio: number;
       adjustmentStatus: "verified" | "ambiguous";
-      sourceRevision: string;
-    }
-  | {
+    } & SourceReference)
+  | ({
       id: string;
       symbol: string;
       type: "cash_dividend" | "halt" | "delisting";
       effectiveSession: IsoSession;
       status: "confirmed" | "estimated";
       adjustmentStatus: "verified" | "ambiguous";
-      sourceRevision: string;
-    };
+    } & SourceReference);
 
-export interface SessionCalendar {
+export interface SessionCalendar extends SourceReference {
   exchange: string;
   timezone: "America/New_York";
   sessions: IsoSession[];
-  sourceRevision: string;
 }
 
 export interface IssuerEvent {
@@ -58,15 +61,14 @@ export interface IssuerEvent {
   status: "confirmed" | "estimated";
 }
 
-export interface EventCalendarStatus {
+export interface EventCalendarStatus extends SourceReference {
   symbol: string;
   asOfSession: IsoSession;
   completeThroughSession: IsoSession;
-  sourceRevision: string;
   events: IssuerEvent[];
 }
 
-export interface ProviderMarketData {
+export interface ProviderMarketData extends SourceReference {
   provider: string;
   requestedSessions: number;
   fetchedAt: string;
@@ -85,6 +87,7 @@ export interface MarketDataRequest {
   symbol: string;
   benchmarkSymbol: string;
   cutoffSession: IsoSession;
+  knowledgeCutoffAt: string;
   sessions: number;
 }
 
@@ -141,6 +144,10 @@ export interface MarketSnapshot {
   instrument: InstrumentIdentity;
   benchmark: InstrumentIdentity;
   cutoffSession: IsoSession;
+  knowledgeCutoffAt: string;
+  providerFetchedAt: string;
+  providerSourceUpdatedAt: string;
+  sourceManifest: SourceReference[];
   calendarRevision: string;
   eventCalendarRevision: string;
   bars: MarketBar[];

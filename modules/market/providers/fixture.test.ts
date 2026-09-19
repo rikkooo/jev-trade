@@ -17,6 +17,7 @@ describe("FixtureMarketDataProvider", () => {
         symbol: "ACME",
         benchmarkSymbol: "BENCH",
         cutoffSession: cutoffOf(fixture),
+        knowledgeCutoffAt: `${cutoffOf(fixture)}T23:00:00.000Z`,
         sessions: 299,
       }),
     ).rejects.toThrow("at least 300 sessions");
@@ -31,6 +32,7 @@ describe("FixtureMarketDataProvider", () => {
       symbol: "ACME",
       benchmarkSymbol: "BENCH",
       cutoffSession: cutoffOf(fixture),
+      knowledgeCutoffAt: `${cutoffOf(fixture)}T23:00:00.000Z`,
       sessions: 300,
     };
 

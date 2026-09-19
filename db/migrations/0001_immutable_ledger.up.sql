@@ -55,7 +55,9 @@ CREATE TABLE market_bars (
   symbol text NOT NULL REFERENCES symbols(symbol),
   provider text NOT NULL CHECK (provider <> ''),
   session_date date NOT NULL,
-  revision integer NOT NULL CHECK (revision >= 1),
+  source_id text NOT NULL CHECK (source_id <> ''),
+  source_revision text NOT NULL CHECK (source_revision <> ''),
+  source_available_at timestamptz NOT NULL,
   unadjusted_open numeric NOT NULL CHECK (unadjusted_open > 0),
   unadjusted_high numeric NOT NULL CHECK (unadjusted_high > 0),
   unadjusted_low numeric NOT NULL CHECK (unadjusted_low > 0),
@@ -68,7 +70,7 @@ CREATE TABLE market_bars (
   corporate_action jsonb NOT NULL DEFAULT '{}'::jsonb,
   source_hash char(64) NOT NULL CHECK (source_hash ~ '^[a-f0-9]{64}$'),
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  UNIQUE (provider, symbol, session_date, revision),
+  UNIQUE (provider, symbol, session_date, source_revision),
   CHECK (unadjusted_high >= GREATEST(unadjusted_open, unadjusted_close, unadjusted_low)),
   CHECK (unadjusted_low <= LEAST(unadjusted_open, unadjusted_close, unadjusted_high)),
   CHECK (adjusted_high >= GREATEST(adjusted_open, adjusted_close, adjusted_low)),
@@ -80,10 +82,19 @@ CREATE TABLE market_snapshots (
   symbol text NOT NULL REFERENCES symbols(symbol),
   provider text NOT NULL CHECK (provider <> ''),
   cutoff_at timestamptz NOT NULL,
+  knowledge_cutoff_at timestamptz NOT NULL,
+  provider_fetched_at timestamptz NOT NULL,
+  source_updated_at timestamptz NOT NULL,
   latest_market_session date NOT NULL,
+  source_manifest jsonb NOT NULL,
   canonical_state jsonb NOT NULL,
   content_hash char(64) NOT NULL UNIQUE CHECK (content_hash ~ '^[a-f0-9]{64}$'),
-  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  CHECK (cutoff_at <= knowledge_cutoff_at),
+  CHECK (provider_fetched_at <= knowledge_cutoff_at),
+  CHECK (source_updated_at <= knowledge_cutoff_at),
+  CHECK (source_updated_at <= provider_fetched_at),
+  CHECK (jsonb_typeof(source_manifest) = 'array')
 );
 
 CREATE TABLE snapshot_bar_refs (
@@ -254,6 +265,8 @@ CREATE TABLE job_attempt_events (
 );
 
 CREATE UNIQUE INDEX job_attempt_one_status_idx ON job_attempt_events (attempt_id, status);
+CREATE UNIQUE INDEX job_attempt_one_terminal_idx
+  ON job_attempt_events (attempt_id) WHERE status IN ('succeeded', 'failed');
 CREATE INDEX job_attempt_timeline_idx ON job_attempt_events (attempt_id, created_at, id);
 
 CREATE TABLE ledger_roots (
@@ -278,7 +291,7 @@ CREATE TABLE private_identifiers (
   expires_at timestamptz NOT NULL,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   UNIQUE (identifier_kind, token_digest, scope_key),
-  CHECK (expires_at <= created_at + interval '30 days')
+  CHECK (expires_at > created_at AND expires_at <= created_at + interval '30 days')
 );
 
 CREATE INDEX private_identifiers_expiry_idx ON private_identifiers (expires_at);
@@ -436,6 +449,85 @@ CREATE TRIGGER forecast_dependency_match
   BEFORE INSERT ON forecasts
   FOR EACH ROW EXECUTE FUNCTION validate_forecast_dependencies();
 
+CREATE FUNCTION validate_market_snapshot_sources()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF jsonb_array_length(NEW.source_manifest) = 0 OR EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(NEW.source_manifest) source
+    WHERE NULLIF(source->>'sourceId', '') IS NULL
+      OR NULLIF(source->>'sourceRevision', '') IS NULL
+      OR COALESCE(source->>'sourceHash', '') !~ '^[a-f0-9]{64}$'
+      OR NULLIF(source->>'availableAt', '') IS NULL
+      OR (source->>'availableAt')::timestamptz > NEW.knowledge_cutoff_at
+      OR (source->>'availableAt')::timestamptz > NEW.provider_fetched_at
+  ) THEN
+    RAISE EXCEPTION 'snapshot source manifest contains unavailable or invalid provenance';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(NEW.source_manifest) source
+    GROUP BY source->>'sourceId', source->>'sourceRevision'
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'snapshot source manifest contains duplicate source versions';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER market_snapshot_source_cutoff
+  BEFORE INSERT ON market_snapshots
+  FOR EACH ROW EXECUTE FUNCTION validate_market_snapshot_sources();
+
+CREATE FUNCTION validate_snapshot_bar_reference()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  snapshot_provider text;
+  knowledge_cutoff timestamptz;
+  provider_fetched timestamptz;
+  snapshot_manifest jsonb;
+  bar_provider text;
+  bar_available_at timestamptz;
+  bar_source_id text;
+  bar_source_revision text;
+  bar_source_hash text;
+BEGIN
+  SELECT provider, knowledge_cutoff_at, provider_fetched_at, source_manifest
+    INTO snapshot_provider, knowledge_cutoff, provider_fetched, snapshot_manifest
+    FROM market_snapshots WHERE id = NEW.snapshot_id;
+  SELECT provider, source_available_at, source_id, source_revision, source_hash
+    INTO bar_provider, bar_available_at, bar_source_id, bar_source_revision, bar_source_hash
+    FROM market_bars WHERE id = NEW.bar_id;
+
+  IF snapshot_provider IS DISTINCT FROM bar_provider THEN
+    RAISE EXCEPTION 'snapshot and bar providers do not match';
+  END IF;
+  IF bar_available_at > knowledge_cutoff OR bar_available_at > provider_fetched THEN
+    RAISE EXCEPTION 'bar revision was unavailable when the snapshot was fetched';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(snapshot_manifest) source
+    WHERE source->>'sourceId' = bar_source_id
+      AND source->>'sourceRevision' = bar_source_revision
+      AND source->>'sourceHash' = bar_source_hash
+      AND (source->>'availableAt')::timestamptz = bar_available_at
+  ) THEN
+    RAISE EXCEPTION 'referenced bar provenance is absent from the snapshot manifest';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER snapshot_bar_reference_cutoff
+  BEFORE INSERT ON snapshot_bar_refs
+  FOR EACH ROW EXECUTE FUNCTION validate_snapshot_bar_reference();
+
 CREATE FUNCTION validate_forecast_outcome()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -445,6 +537,12 @@ DECLARE
   already_corrected boolean;
 BEGIN
   IF NEW.correction_of_outcome_id IS NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM forecast_events
+      WHERE forecast_id = NEW.forecast_id AND event_type = 'resolved'
+    ) THEN
+      RAISE EXCEPTION 'forecast % must be resolved before recording an outcome', NEW.forecast_id;
+    END IF;
     IF EXISTS (SELECT 1 FROM forecast_outcomes WHERE forecast_id = NEW.forecast_id) THEN
       RAISE EXCEPTION 'forecast % already has an outcome', NEW.forecast_id;
     END IF;
@@ -467,6 +565,49 @@ CREATE TRIGGER forecast_outcome_chain
   BEFORE INSERT ON forecast_outcomes
   FOR EACH ROW EXECUTE FUNCTION validate_forecast_outcome();
 
+CREATE FUNCTION validate_job_attempt()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  previous_attempt integer;
+  previous_status text;
+BEGIN
+  PERFORM 1 FROM job_operations WHERE id = NEW.operation_id FOR UPDATE;
+
+  SELECT attempt.attempt_number, event.status
+    INTO previous_attempt, previous_status
+    FROM job_attempts attempt
+    JOIN LATERAL (
+      SELECT status
+      FROM job_attempt_events
+      WHERE attempt_id = attempt.id
+      ORDER BY created_at DESC, id DESC
+      LIMIT 1
+    ) event ON true
+    WHERE attempt.operation_id = NEW.operation_id
+    ORDER BY attempt.attempt_number DESC
+    LIMIT 1;
+
+  IF previous_attempt IS NULL AND NEW.attempt_number <> 1 THEN
+    RAISE EXCEPTION 'the first job attempt must be attempt 1';
+  ELSIF previous_status = 'succeeded' THEN
+    RAISE EXCEPTION 'a succeeded operation cannot be retried';
+  ELSIF previous_attempt IS NOT NULL AND previous_status <> 'failed' THEN
+    RAISE EXCEPTION 'a retry requires a terminal failed attempt';
+  ELSIF previous_attempt IS NOT NULL
+    AND NEW.attempt_number <> previous_attempt + 1
+  THEN
+    RAISE EXCEPTION 'retry attempt numbers must be contiguous';
+  END IF;
+  RETURN NEW;
+END
+$$;
+
+CREATE TRIGGER job_attempt_lifecycle
+  BEFORE INSERT ON job_attempts
+  FOR EACH ROW EXECUTE FUNCTION validate_job_attempt();
+
 CREATE FUNCTION validate_job_attempt_event()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -474,6 +615,7 @@ AS $$
 DECLARE
   current_status text;
 BEGIN
+  PERFORM 1 FROM job_attempts WHERE id = NEW.attempt_id FOR UPDATE;
   SELECT status INTO current_status
     FROM job_attempt_events
     WHERE attempt_id = NEW.attempt_id
@@ -535,7 +677,12 @@ SELECT occurred_on, event_name, symbol, count(*)::bigint AS event_count
 FROM analytics_events
 GROUP BY occurred_on, event_name, symbol;
 
-CREATE FUNCTION public_mode_gate(p_at timestamptz)
+CREATE FUNCTION public_mode_gate(
+  p_at timestamptz,
+  p_expected_provider text,
+  p_expected_processor text,
+  p_required_fields text[]
+)
 RETURNS TABLE (allowed boolean, blockers text[])
 LANGUAGE sql
 STABLE
@@ -546,16 +693,20 @@ WITH gates AS (
   SELECT
     EXISTS (
       SELECT 1 FROM provider_rights
-      WHERE audience = 'public'
+      WHERE provider = p_expected_provider
+        AND audience = 'public'
         AND effective_from <= p_at
         AND (effective_to IS NULL OR p_at < effective_to)
+        AND cardinality(p_required_fields) > 0
+        AND p_required_fields <@ permitted_fields
         AND derived_outputs
         AND screenshots_and_video
         AND onward_ai_processing
     ) AS has_rights,
     EXISTS (
       SELECT 1 FROM processor_terms
-      WHERE effective_from <= p_at
+      WHERE processor = p_expected_processor
+        AND effective_from <= p_at
         AND (effective_to IS NULL OR p_at < effective_to)
     ) AS has_processor_terms
 )
@@ -576,6 +727,8 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   inserted_id text;
+  existing_forecast forecasts%ROWTYPE;
+  existing_publication_event_id text;
 BEGIN
   INSERT INTO forecasts (
     id, publication_key, snapshot_id, judgment_id, policy_decision_id, symbol,
@@ -595,15 +748,507 @@ BEGIN
   RETURNING id INTO inserted_id;
 
   IF inserted_id IS NULL THEN
-    SELECT id INTO inserted_id FROM forecasts
-    WHERE publication_key = p_forecast->>'publicationKey';
-    RETURN QUERY SELECT false, inserted_id;
+    SELECT * INTO existing_forecast FROM forecasts
+      WHERE publication_key = p_forecast->>'publicationKey';
+    SELECT event.id INTO existing_publication_event_id
+      FROM forecast_events event
+      WHERE event.forecast_id = existing_forecast.id
+        AND event.event_type = 'published';
+
+    IF existing_forecast.id IS DISTINCT FROM p_forecast->>'id'
+      OR existing_forecast.snapshot_id IS DISTINCT FROM p_forecast->>'snapshotId'
+      OR existing_forecast.judgment_id IS DISTINCT FROM p_forecast->>'judgmentId'
+      OR existing_forecast.policy_decision_id IS DISTINCT FROM p_forecast->>'policyDecisionId'
+      OR existing_forecast.symbol IS DISTINCT FROM p_forecast->>'symbol'
+      OR existing_forecast.mode IS DISTINCT FROM p_forecast->>'mode'
+      OR existing_forecast.horizon_sessions IS DISTINCT FROM (p_forecast->>'horizonSessions')::integer
+      OR existing_forecast.cutoff_at IS DISTINCT FROM (p_forecast->>'cutoffAt')::timestamptz
+      OR existing_forecast.latest_market_session IS DISTINCT FROM (p_forecast->>'latestMarketSession')::date
+      OR existing_forecast.model_version IS DISTINCT FROM p_forecast->>'modelVersion'
+      OR existing_forecast.question_version IS DISTINCT FROM p_forecast->>'questionVersion'
+      OR existing_forecast.policy_version IS DISTINCT FROM p_forecast->>'policyVersion'
+      OR existing_forecast.deployment_sha IS DISTINCT FROM p_forecast->>'deploymentSha'
+      OR existing_publication_event_id IS DISTINCT FROM p_publication_event_id
+    THEN
+      RAISE EXCEPTION USING
+        ERRCODE = '23505',
+        MESSAGE = 'publication key conflicts with a different immutable payload';
+    END IF;
+
+    RETURN QUERY SELECT false, existing_forecast.id;
     RETURN;
   END IF;
 
   INSERT INTO forecast_events (id, forecast_id, event_type)
   VALUES (p_publication_event_id, inserted_id, 'published');
   RETURN QUERY SELECT true, inserted_id;
+END
+$$;
+
+CREATE FUNCTION upsert_symbol(p_symbol jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO symbols (symbol, exchange, currency, benchmark_symbol, enabled)
+  VALUES (
+    p_symbol->>'symbol', p_symbol->>'exchange', p_symbol->>'currency',
+    p_symbol->>'benchmarkSymbol', (p_symbol->>'enabled')::boolean
+  )
+  ON CONFLICT (symbol) DO UPDATE SET
+    exchange = EXCLUDED.exchange,
+    currency = EXCLUDED.currency,
+    benchmark_symbol = EXCLUDED.benchmark_symbol,
+    enabled = EXCLUDED.enabled,
+    updated_at = clock_timestamp();
+  RETURN p_symbol->>'symbol';
+END
+$$;
+
+CREATE FUNCTION append_provider_rights(p_record jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO provider_rights (
+    id, provider, plan_or_contract, permitted_fields, audience, retention,
+    attribution, derived_outputs, screenshots_and_video,
+    onward_ai_processing, effective_from, effective_to, reviewed_by,
+    evidence_hash
+  ) VALUES (
+    p_record->>'id', p_record->>'provider', p_record->>'planOrContract',
+    ARRAY(SELECT jsonb_array_elements_text(p_record->'permittedFields')),
+    p_record->>'audience', p_record->>'retention', p_record->>'attribution',
+    (p_record->>'derivedOutputs')::boolean,
+    (p_record->>'screenshotsAndVideo')::boolean,
+    (p_record->>'onwardAiProcessing')::boolean,
+    (p_record->>'effectiveFrom')::timestamptz,
+    (p_record->>'effectiveTo')::timestamptz,
+    p_record->>'reviewedBy', p_record->>'evidenceHash'
+  );
+  RETURN p_record->>'id';
+END
+$$;
+
+CREATE FUNCTION append_processor_terms(p_record jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO processor_terms (
+    id, processor, retention, training, residency, deletion, effective_from,
+    effective_to, reviewed_by, evidence_hash
+  ) VALUES (
+    p_record->>'id', p_record->>'processor', p_record->>'retention',
+    p_record->>'training', p_record->>'residency', p_record->>'deletion',
+    (p_record->>'effectiveFrom')::timestamptz,
+    (p_record->>'effectiveTo')::timestamptz,
+    p_record->>'reviewedBy', p_record->>'evidenceHash'
+  );
+  RETURN p_record->>'id';
+END
+$$;
+
+CREATE FUNCTION append_market_bar(p_bar jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO market_bars (
+    id, symbol, provider, session_date, source_id, source_revision,
+    source_available_at, unadjusted_open, unadjusted_high, unadjusted_low,
+    unadjusted_close, adjusted_open, adjusted_high, adjusted_low,
+    adjusted_close, volume, corporate_action, source_hash
+  ) VALUES (
+    p_bar->>'id', p_bar->>'symbol', p_bar->>'provider',
+    (p_bar->>'sessionDate')::date, p_bar->>'sourceId',
+    p_bar->>'sourceRevision', (p_bar->>'sourceAvailableAt')::timestamptz,
+    (p_bar->>'unadjustedOpen')::numeric,
+    (p_bar->>'unadjustedHigh')::numeric,
+    (p_bar->>'unadjustedLow')::numeric,
+    (p_bar->>'unadjustedClose')::numeric,
+    (p_bar->>'adjustedOpen')::numeric,
+    (p_bar->>'adjustedHigh')::numeric,
+    (p_bar->>'adjustedLow')::numeric,
+    (p_bar->>'adjustedClose')::numeric,
+    (p_bar->>'volume')::numeric,
+    COALESCE(p_bar->'corporateAction', '{}'::jsonb), p_bar->>'sourceHash'
+  );
+  RETURN p_bar->>'id';
+END
+$$;
+
+CREATE FUNCTION append_market_snapshot(
+  p_snapshot jsonb,
+  p_bar_refs jsonb,
+  p_evidence jsonb
+)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  ref record;
+  evidence record;
+BEGIN
+  IF jsonb_typeof(p_bar_refs) <> 'array'
+    OR jsonb_typeof(p_evidence) <> 'array'
+  THEN
+    RAISE EXCEPTION 'snapshot references and evidence must be arrays';
+  END IF;
+
+  INSERT INTO market_snapshots (
+    id, symbol, provider, cutoff_at, knowledge_cutoff_at,
+    provider_fetched_at, source_updated_at, latest_market_session,
+    source_manifest, canonical_state, content_hash
+  ) VALUES (
+    p_snapshot->>'id', p_snapshot->>'symbol', p_snapshot->>'provider',
+    (p_snapshot->>'cutoffAt')::timestamptz,
+    (p_snapshot->>'knowledgeCutoffAt')::timestamptz,
+    (p_snapshot->>'providerFetchedAt')::timestamptz,
+    (p_snapshot->>'sourceUpdatedAt')::timestamptz,
+    (p_snapshot->>'latestMarketSession')::date,
+    p_snapshot->'sourceManifest', p_snapshot->'state',
+    p_snapshot->>'contentHash'
+  );
+
+  FOR ref IN
+    SELECT * FROM jsonb_to_recordset(p_bar_refs)
+      AS value("barId" text, role text, ordinal integer)
+  LOOP
+    INSERT INTO snapshot_bar_refs (snapshot_id, bar_id, role, ordinal)
+    VALUES (p_snapshot->>'id', ref."barId", ref.role, ref.ordinal);
+  END LOOP;
+
+  FOR evidence IN
+    SELECT * FROM jsonb_to_recordset(p_evidence)
+      AS value(id text, "sourceId" text, descriptor jsonb, "contentHash" text)
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(p_snapshot->'sourceManifest') source
+      WHERE source->>'sourceId' = evidence."sourceId"
+    ) THEN
+      RAISE EXCEPTION 'evidence source is absent from the snapshot manifest';
+    END IF;
+    INSERT INTO evidence_descriptors (
+      id, snapshot_id, source_id, descriptor, content_hash
+    ) VALUES (
+      evidence.id, p_snapshot->>'id', evidence."sourceId",
+      evidence.descriptor, evidence."contentHash"
+    );
+  END LOOP;
+  RETURN p_snapshot->>'id';
+END
+$$;
+
+CREATE FUNCTION append_judgment_run(p_run jsonb, p_answers jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  answer record;
+BEGIN
+  IF jsonb_typeof(p_answers) <> 'array' THEN
+    RAISE EXCEPTION 'judgment answers must be an array';
+  END IF;
+  INSERT INTO judgment_runs (
+    id, snapshot_id, provider, model_version, question_version, status,
+    typed_response, content_hash, error_code, started_at, completed_at
+  ) VALUES (
+    p_run->>'id', p_run->>'snapshotId', p_run->>'provider',
+    p_run->>'modelVersion', p_run->>'questionVersion', p_run->>'status',
+    p_run->'typedResponse', p_run->>'contentHash', p_run->>'errorCode',
+    (p_run->>'startedAt')::timestamptz,
+    (p_run->>'completedAt')::timestamptz
+  );
+  FOR answer IN
+    SELECT * FROM jsonb_to_recordset(p_answers)
+      AS value(
+        id text, "answerId" text, primitive text, "selectedOption" text,
+        distribution jsonb, confidence numeric
+      )
+  LOOP
+    INSERT INTO judgment_answers (
+      id, judgment_id, answer_id, primitive, selected_option, distribution,
+      confidence
+    ) VALUES (
+      answer.id, p_run->>'id', answer."answerId", answer.primitive,
+      answer."selectedOption", answer.distribution, answer.confidence
+    );
+  END LOOP;
+  RETURN p_run->>'id';
+END
+$$;
+
+CREATE FUNCTION append_policy_decision(p_decision jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO policy_decisions (
+    id, judgment_id, policy_version, action, gate_trace, sizing, content_hash
+  ) VALUES (
+    p_decision->>'id', p_decision->>'judgmentId',
+    p_decision->>'policyVersion', p_decision->>'action',
+    p_decision->'gateTrace', p_decision->'sizing',
+    p_decision->>'contentHash'
+  );
+  RETURN p_decision->>'id';
+END
+$$;
+
+CREATE FUNCTION append_forecast_terminal_event(p_event jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_event->>'type' NOT IN ('resolved', 'void')
+    OR p_event ? 'referencesEventId'
+  THEN
+    RAISE EXCEPTION 'worker terminal event must be resolved or void';
+  END IF;
+  INSERT INTO forecast_events (id, forecast_id, event_type, reason, payload)
+  VALUES (
+    p_event->>'id', p_event->>'forecastId', p_event->>'type',
+    p_event->>'reason', COALESCE(p_event->'payload', '{}'::jsonb)
+  );
+  RETURN p_event->>'id';
+END
+$$;
+
+CREATE FUNCTION append_forecast_correction_event(p_event jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_event->>'type' IS DISTINCT FROM 'correction'
+    OR NULLIF(p_event->>'referencesEventId', '') IS NULL
+  THEN
+    RAISE EXCEPTION 'operator correction event needs a reference';
+  END IF;
+  INSERT INTO forecast_events (
+    id, forecast_id, event_type, reason, references_event_id, payload
+  ) VALUES (
+    p_event->>'id', p_event->>'forecastId', 'correction',
+    p_event->>'reason', p_event->>'referencesEventId',
+    COALESCE(p_event->'payload', '{}'::jsonb)
+  );
+  RETURN p_event->>'id';
+END
+$$;
+
+CREATE FUNCTION append_forecast_outcome(p_outcome jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_outcome ? 'correctionOfOutcomeId'
+    OR p_outcome ? 'correctionReason'
+  THEN
+    RAISE EXCEPTION 'worker outcome cannot be a correction';
+  END IF;
+  INSERT INTO forecast_outcomes (
+    id, forecast_id, realized_label, adjusted_return, brier_score, log_loss,
+    source_bar_hash
+  ) VALUES (
+    p_outcome->>'id', p_outcome->>'forecastId',
+    p_outcome->>'realizedLabel', (p_outcome->>'adjustedReturn')::numeric,
+    (p_outcome->>'brierScore')::numeric, (p_outcome->>'logLoss')::numeric,
+    p_outcome->>'sourceBarHash'
+  );
+  RETURN p_outcome->>'id';
+END
+$$;
+
+CREATE FUNCTION append_forecast_outcome_correction(p_outcome jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NULLIF(p_outcome->>'correctionOfOutcomeId', '') IS NULL
+    OR NULLIF(p_outcome->>'correctionReason', '') IS NULL
+  THEN
+    RAISE EXCEPTION 'operator outcome correction needs a reference and reason';
+  END IF;
+  INSERT INTO forecast_outcomes (
+    id, forecast_id, realized_label, adjusted_return, brier_score, log_loss,
+    source_bar_hash, correction_of_outcome_id, correction_reason
+  ) VALUES (
+    p_outcome->>'id', p_outcome->>'forecastId',
+    p_outcome->>'realizedLabel', (p_outcome->>'adjustedReturn')::numeric,
+    (p_outcome->>'brierScore')::numeric, (p_outcome->>'logLoss')::numeric,
+    p_outcome->>'sourceBarHash', p_outcome->>'correctionOfOutcomeId',
+    p_outcome->>'correctionReason'
+  );
+  RETURN p_outcome->>'id';
+END
+$$;
+
+CREATE FUNCTION append_paper_event(p_event jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_event->>'type' = 'correction' OR p_event ? 'correctionOfEventId' THEN
+    RAISE EXCEPTION 'worker paper event cannot be a correction';
+  END IF;
+  INSERT INTO paper_events (
+    id, forecast_id, event_type, symbol, cash_delta, shares_delta, price,
+    reason, source_hash
+  ) VALUES (
+    p_event->>'id', p_event->>'forecastId', p_event->>'type',
+    p_event->>'symbol', (p_event->>'cashDelta')::numeric,
+    (p_event->>'sharesDelta')::numeric, (p_event->>'price')::numeric,
+    p_event->>'reason', p_event->>'sourceHash'
+  );
+  RETURN p_event->>'id';
+END
+$$;
+
+CREATE FUNCTION append_paper_correction(p_event jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_event->>'type' IS DISTINCT FROM 'correction'
+    OR NULLIF(p_event->>'correctionOfEventId', '') IS NULL
+    OR NULLIF(p_event->>'reason', '') IS NULL
+  THEN
+    RAISE EXCEPTION 'operator paper correction needs a reference and reason';
+  END IF;
+  INSERT INTO paper_events (
+    id, forecast_id, event_type, symbol, cash_delta, shares_delta, price,
+    correction_of_event_id, reason, source_hash
+  ) VALUES (
+    p_event->>'id', p_event->>'forecastId', 'correction',
+    p_event->>'symbol', (p_event->>'cashDelta')::numeric,
+    (p_event->>'sharesDelta')::numeric, (p_event->>'price')::numeric,
+    p_event->>'correctionOfEventId', p_event->>'reason',
+    p_event->>'sourceHash'
+  );
+  RETURN p_event->>'id';
+END
+$$;
+
+CREATE FUNCTION append_job_operation(p_operation jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO job_operations (
+    id, operation_key, operation_type, replay_of_operation_id
+  ) VALUES (
+    p_operation->>'id', p_operation->>'operationKey',
+    p_operation->>'operationType', p_operation->>'replayOfOperationId'
+  );
+  RETURN p_operation->>'id';
+END
+$$;
+
+CREATE FUNCTION append_job_attempt(p_attempt jsonb, p_scheduled_event_id text)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO job_attempts (id, operation_id, attempt_number)
+  VALUES (
+    p_attempt->>'id', p_attempt->>'operationId',
+    (p_attempt->>'attemptNumber')::integer
+  );
+  INSERT INTO job_attempt_events (id, attempt_id, status, details)
+  VALUES (
+    p_scheduled_event_id, p_attempt->>'id', 'scheduled',
+    COALESCE(p_attempt->'details', '{}'::jsonb)
+  );
+  RETURN p_attempt->>'id';
+END
+$$;
+
+CREATE FUNCTION append_job_attempt_event(p_event jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_event->>'status' NOT IN ('evaluating', 'succeeded', 'failed') THEN
+    RAISE EXCEPTION 'scheduled status is created with the job attempt';
+  END IF;
+  INSERT INTO job_attempt_events (
+    id, attempt_id, status, error_code, details
+  ) VALUES (
+    p_event->>'id', p_event->>'attemptId', p_event->>'status',
+    p_event->>'errorCode', COALESCE(p_event->'details', '{}'::jsonb)
+  );
+  RETURN p_event->>'id';
+END
+$$;
+
+CREATE FUNCTION append_ledger_root(p_root jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO ledger_roots (
+    id, batch_key, root_hash, previous_root_hash, attestation_deadline,
+    artifact_url, attestation_url, attested_at
+  ) VALUES (
+    p_root->>'id', p_root->>'batchKey', p_root->>'rootHash',
+    p_root->>'previousRootHash',
+    (p_root->>'attestationDeadline')::timestamptz,
+    p_root->>'artifactUrl', p_root->>'attestationUrl',
+    (p_root->>'attestedAt')::timestamptz
+  );
+  RETURN p_root->>'id';
+END
+$$;
+
+CREATE FUNCTION append_visitor_pick_result(p_result jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  INSERT INTO visitor_pick_results (
+    id, visitor_pick_id, outcome_id, correct
+  ) VALUES (
+    p_result->>'id', p_result->>'visitorPickId', p_result->>'outcomeId',
+    (p_result->>'correct')::boolean
+  );
+  RETURN p_result->>'id';
 END
 $$;
 
@@ -649,7 +1294,7 @@ BEGIN
 
   INSERT INTO visitor_picks (id, forecast_id, choice)
   VALUES (stable_pick_id, p_forecast_id, p_choice)
-  ON CONFLICT (id) DO NOTHING
+  ON CONFLICT ON CONSTRAINT visitor_picks_pkey DO NOTHING
   RETURNING visitor_picks.id INTO inserted_id;
 
   RETURN QUERY
@@ -717,17 +1362,80 @@ BEGIN
 END
 $$;
 
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM PUBLIC;
+REVOKE ALL ON TABLE
+  symbols, provider_rights, processor_terms, market_bars, market_snapshots,
+  snapshot_bar_refs, evidence_descriptors, judgment_runs, judgment_answers,
+  policy_decisions, forecasts, forecast_events, forecast_outcomes,
+  paper_events, job_operations, job_attempts, job_attempt_events, ledger_roots,
+  private_identifiers, visitor_picks, visitor_pick_results, analytics_events,
+  identifier_expiry_runs, forecast_current_states, active_forecast_outcomes,
+  paper_position_projection, analytics_aggregate
+FROM PUBLIC, jev_public_reader, jev_public_ingest, jev_worker, jev_operator;
+
+REVOKE ALL ON FUNCTION reject_immutable_mutation() FROM PUBLIC;
+REVOKE ALL ON FUNCTION validate_forecast_event() FROM PUBLIC;
+REVOKE ALL ON FUNCTION validate_forecast_dependencies() FROM PUBLIC;
+REVOKE ALL ON FUNCTION validate_market_snapshot_sources() FROM PUBLIC;
+REVOKE ALL ON FUNCTION validate_snapshot_bar_reference() FROM PUBLIC;
+REVOKE ALL ON FUNCTION validate_forecast_outcome() FROM PUBLIC;
+REVOKE ALL ON FUNCTION validate_job_attempt() FROM PUBLIC;
+REVOKE ALL ON FUNCTION validate_job_attempt_event() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public_mode_gate(timestamptz, text, text, text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION publish_forecast(jsonb, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION upsert_symbol(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_provider_rights(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_processor_terms(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_market_bar(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_market_snapshot(jsonb, jsonb, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_judgment_run(jsonb, jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_policy_decision(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_forecast_terminal_event(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_forecast_correction_event(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_forecast_outcome(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_forecast_outcome_correction(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_paper_event(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_paper_correction(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_job_operation(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_job_attempt(jsonb, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_job_attempt_event(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_ledger_root(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION append_visitor_pick_result(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION record_visitor_pick(text, text, char(64), timestamptz, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION record_analytics_event(text, boolean, text, char(64), timestamptz, text, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION purge_expired_identifiers(text, timestamptz) FROM PUBLIC;
 
 GRANT SELECT ON forecast_current_states, active_forecast_outcomes,
   paper_position_projection, analytics_aggregate TO jev_public_reader;
-GRANT EXECUTE ON FUNCTION public_mode_gate(timestamptz) TO jev_public_reader, jev_worker, jev_operator;
+GRANT EXECUTE ON FUNCTION public_mode_gate(timestamptz, text, text, text[])
+  TO jev_public_reader, jev_worker, jev_operator;
 GRANT EXECUTE ON FUNCTION record_visitor_pick(text, text, char(64), timestamptz, text, text)
   TO jev_public_ingest;
 GRANT EXECUTE ON FUNCTION record_analytics_event(text, boolean, text, char(64), timestamptz, text, text, text)
   TO jev_public_ingest;
 GRANT EXECUTE ON FUNCTION publish_forecast(jsonb, text) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_market_bar(jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_market_snapshot(jsonb, jsonb, jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_judgment_run(jsonb, jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_policy_decision(jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_forecast_terminal_event(jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_forecast_outcome(jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_paper_event(jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_job_operation(jsonb)
+  TO jev_worker, jev_operator;
+GRANT EXECUTE ON FUNCTION append_job_attempt(jsonb, text)
+  TO jev_worker, jev_operator;
+GRANT EXECUTE ON FUNCTION append_job_attempt_event(jsonb)
+  TO jev_worker, jev_operator;
+GRANT EXECUTE ON FUNCTION append_ledger_root(jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION append_visitor_pick_result(jsonb) TO jev_worker;
+GRANT EXECUTE ON FUNCTION upsert_symbol(jsonb) TO jev_operator;
+GRANT EXECUTE ON FUNCTION append_provider_rights(jsonb) TO jev_operator;
+GRANT EXECUTE ON FUNCTION append_processor_terms(jsonb) TO jev_operator;
+GRANT EXECUTE ON FUNCTION append_forecast_correction_event(jsonb)
+  TO jev_operator;
+GRANT EXECUTE ON FUNCTION append_forecast_outcome_correction(jsonb)
+  TO jev_operator;
+GRANT EXECUTE ON FUNCTION append_paper_correction(jsonb) TO jev_operator;
 GRANT EXECUTE ON FUNCTION purge_expired_identifiers(text, timestamptz)
   TO jev_worker, jev_operator;
 

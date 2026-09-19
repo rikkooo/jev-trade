@@ -12,6 +12,7 @@ function build(input = buildMarketFixture()) {
   return buildMarketSnapshot(input, {
     allowlistedSymbols: ["ACME"],
     cutoffSession: cutoffOf(input),
+    knowledgeCutoffAt: `${cutoffOf(input)}T23:00:00.000Z`,
   });
 }
 
@@ -26,6 +27,7 @@ function expectFailure(
     buildMarketSnapshot(input, {
       allowlistedSymbols: ["ACME"],
       cutoffSession,
+      knowledgeCutoffAt: `${cutoffSession}T23:00:00.000Z`,
     }),
   ).toThrowError(
     expect.objectContaining<Partial<MarketDataValidationError>>({ code }),
@@ -38,6 +40,15 @@ describe("buildMarketSnapshot", () => {
     const snapshot = build(input);
 
     expect(snapshot.cutoffSession).toBe(cutoffOf(input));
+    expect(snapshot.knowledgeCutoffAt).toBe(`${cutoffOf(input)}T23:00:00.000Z`);
+    expect(snapshot.providerFetchedAt).toBe(input.fetchedAt);
+    expect(snapshot.providerSourceUpdatedAt).toBe(input.sourceUpdatedAt);
+    expect(snapshot.sourceManifest).toContainEqual(
+      expect.objectContaining({
+        sourceId: input.bars.at(-1)!.sourceId,
+        sourceHash: input.bars.at(-1)!.sourceHash,
+      }),
+    );
     expect(snapshot.bars).toHaveLength(272);
     expect(snapshot.features).toMatchObject({
       returns: {
@@ -135,7 +146,10 @@ describe("buildMarketSnapshot", () => {
           status: "confirmed",
           splitRatio: 2,
           adjustmentStatus: "ambiguous",
+          sourceId: "fixture:action:split",
           sourceRevision: "fixture-action-v1",
+          sourceHash: "a".repeat(64),
+          availableAt: `${cutoffOf(input)}T21:30:00.000Z`,
         });
       },
     ],
@@ -150,7 +164,10 @@ describe("buildMarketSnapshot", () => {
           status: "confirmed",
           splitRatio: 2,
           adjustmentStatus: "verified",
+          sourceId: "fixture:action:split",
           sourceRevision: "fixture-action-v1",
+          sourceHash: "a".repeat(64),
+          availableAt: `${cutoffOf(input)}T21:30:00.000Z`,
         });
       },
     ],
@@ -171,6 +188,7 @@ describe("buildMarketSnapshot", () => {
     const before = buildMarketSnapshot(base, {
       allowlistedSymbols: ["ACME"],
       cutoffSession,
+      knowledgeCutoffAt: `${cutoffSession}T23:00:00.000Z`,
     });
     const later = structuredClone(base);
     const futureSessions = later.calendar.sessions.slice(300);
@@ -183,7 +201,10 @@ describe("buildMarketSnapshot", () => {
       symbol,
       session,
       completed: true,
+      sourceId: `fixture:future:${symbol}:${session}`,
       sourceRevision: `future-${session}`,
+      sourceHash: "f".repeat(64),
+      availableAt: `${session}T21:30:00.000Z`,
       adjusted: {
         open: seed,
         high: seed + 10,
@@ -209,13 +230,67 @@ describe("buildMarketSnapshot", () => {
         makeFuture("BENCH", session, 1_900 + i),
       ),
     );
-    later.sourceUpdatedAt = `${futureSessions.at(-1)}T22:00:00.000Z`;
-
     const after = buildMarketSnapshot(later, {
       allowlistedSymbols: ["ACME"],
       cutoffSession,
+      knowledgeCutoffAt: `${cutoffSession}T23:00:00.000Z`,
     });
     expect(after).toEqual(before);
+  });
+
+  it("accepts a completed same-day post-close revision known before the knowledge cutoff", () => {
+    const input = buildMarketFixture();
+    const cutoffSession = cutoffOf(input);
+
+    expect(() =>
+      buildMarketSnapshot(input, {
+        allowlistedSymbols: ["ACME"],
+        cutoffSession,
+        knowledgeCutoffAt: `${cutoffSession}T23:00:00.000Z`,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects a selected provider revision first observed after the knowledge cutoff", () => {
+    const input = buildMarketFixture();
+    const cutoffSession = cutoffOf(input);
+    input.bars.at(-1)!.availableAt = `${cutoffSession}T23:00:00.001Z`;
+
+    expect(() =>
+      buildMarketSnapshot(input, {
+        allowlistedSymbols: ["ACME"],
+        cutoffSession,
+        knowledgeCutoffAt: `${cutoffSession}T23:00:00.000Z`,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "FUTURE_SOURCE_REVISION" }));
+  });
+
+  it("rejects a revision reported as available after the provider fetch", () => {
+    const input = buildMarketFixture();
+    const cutoffSession = cutoffOf(input);
+    input.bars.at(-1)!.availableAt = `${cutoffSession}T22:30:00.000Z`;
+
+    expect(() =>
+      buildMarketSnapshot(input, {
+        allowlistedSymbols: ["ACME"],
+        cutoffSession,
+        knowledgeCutoffAt: `${cutoffSession}T23:00:00.000Z`,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "FUTURE_SOURCE_REVISION" }));
+  });
+
+  it("rejects a response fetched or updated after the knowledge cutoff", () => {
+    const input = buildMarketFixture();
+    const cutoffSession = cutoffOf(input);
+    input.fetchedAt = `${cutoffSession}T23:00:00.001Z`;
+
+    expect(() =>
+      buildMarketSnapshot(input, {
+        allowlistedSymbols: ["ACME"],
+        cutoffSession,
+        knowledgeCutoffAt: `${cutoffSession}T23:00:00.000Z`,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "FUTURE_SOURCE_REVISION" }));
   });
 
   it("keeps every derived number finite and bounded under valid scale changes", () => {

@@ -8,6 +8,13 @@ export interface PublicModeGateResult {
   readonly blockers: readonly PublicModeBlocker[];
 }
 
+export interface PublicModeRequirements {
+  readonly at: string;
+  readonly expectedProvider: string;
+  readonly expectedProcessor: string;
+  readonly requiredFields: readonly string[];
+}
+
 function isEffective(
   record: { readonly effectiveFrom: string; readonly effectiveTo?: string },
   at: string,
@@ -25,11 +32,18 @@ function isEffective(
   );
 }
 
-function isCompleteProviderRight(record: ProviderRights): boolean {
+function isCompleteProviderRight(
+  record: ProviderRights,
+  requirements: PublicModeRequirements,
+): boolean {
+  const permitted = new Set(record.permittedFields);
   return (
+    record.provider === requirements.expectedProvider &&
     record.audience === "public" &&
     record.planOrContract.length > 0 &&
     record.permittedFields.length > 0 &&
+    requirements.requiredFields.length > 0 &&
+    requirements.requiredFields.every((field) => permitted.has(field)) &&
     record.retention.length > 0 &&
     record.attribution.length > 0 &&
     record.derivedOutputs &&
@@ -39,8 +53,12 @@ function isCompleteProviderRight(record: ProviderRights): boolean {
   );
 }
 
-function isCompleteProcessorTerm(record: ProcessorTerms): boolean {
+function isCompleteProcessorTerm(
+  record: ProcessorTerms,
+  requirements: PublicModeRequirements,
+): boolean {
   return (
+    record.processor === requirements.expectedProcessor &&
     record.retention.length > 0 &&
     record.training.length > 0 &&
     record.residency.length > 0 &&
@@ -50,7 +68,7 @@ function isCompleteProcessorTerm(record: ProcessorTerms): boolean {
 }
 
 export function evaluatePublicModeGate(input: {
-  readonly at: string;
+  readonly requirements: PublicModeRequirements;
   readonly providerRights: readonly ProviderRights[];
   readonly processorTerms: readonly ProcessorTerms[];
 }): PublicModeGateResult {
@@ -58,7 +76,8 @@ export function evaluatePublicModeGate(input: {
   if (
     !input.providerRights.some(
       (record) =>
-        isEffective(record, input.at) && isCompleteProviderRight(record),
+        isEffective(record, input.requirements.at) &&
+        isCompleteProviderRight(record, input.requirements),
     )
   ) {
     blockers.push("PROVIDER_RIGHTS_MISSING");
@@ -66,7 +85,8 @@ export function evaluatePublicModeGate(input: {
   if (
     !input.processorTerms.some(
       (record) =>
-        isEffective(record, input.at) && isCompleteProcessorTerm(record),
+        isEffective(record, input.requirements.at) &&
+        isCompleteProcessorTerm(record, input.requirements),
     )
   ) {
     blockers.push("PROCESSOR_TERMS_MISSING");

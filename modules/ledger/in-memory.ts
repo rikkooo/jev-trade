@@ -1,5 +1,8 @@
-import { evaluatePublicModeGate } from "../operations/provider-rights";
-import { sha256Canonical, sha256Text, type JsonValue } from "./canonical-json";
+import {
+  evaluatePublicModeGate,
+  type PublicModeRequirements,
+} from "../operations/provider-rights";
+import { sha256Canonical, sha256Text } from "./canonical-json";
 import {
   LedgerConflictError,
   LedgerInvariantError,
@@ -18,6 +21,7 @@ import type {
   LedgerState,
   MarketSnapshot,
   PaperEvent,
+  PolicyDecision,
   PrivateIdentifier,
   ProcessorTerms,
   ProviderRights,
@@ -44,8 +48,11 @@ function deepFreeze<T>(value: T): T {
 }
 
 function assertTimestamp(value: string, field: string): void {
-  if (!Number.isFinite(Date.parse(value))) {
-    throw new LedgerInvariantError(`${field} must be an ISO timestamp`);
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== value) {
+    throw new LedgerInvariantError(
+      `${field} must be a canonical ISO timestamp`,
+    );
   }
 }
 
@@ -55,7 +62,7 @@ function assertNonEmpty(value: string, field: string): void {
   }
 }
 
-function sameCanonical(left: JsonValue, right: JsonValue): boolean {
+function sameCanonical(left: unknown, right: unknown): boolean {
   return sha256Canonical(left) === sha256Canonical(right);
 }
 
@@ -64,6 +71,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
   readonly #id: (prefix: string) => string;
   readonly #snapshots: MarketSnapshot[] = [];
   readonly #judgments: JudgmentRun[] = [];
+  readonly #policyDecisions: PolicyDecision[] = [];
   readonly #forecasts: Forecast[] = [];
   readonly #forecastEvents: ForecastEvent[] = [];
   readonly #outcomes: ForecastOutcome[] = [];
@@ -93,11 +101,59 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     assertNonEmpty(input.id, "snapshot.id");
     assertNonEmpty(input.symbol, "snapshot.symbol");
     assertTimestamp(input.cutoffAt, "snapshot.cutoffAt");
+    assertTimestamp(input.knowledgeCutoffAt, "snapshot.knowledgeCutoffAt");
+    assertTimestamp(input.providerFetchedAt, "snapshot.providerFetchedAt");
+    assertTimestamp(input.sourceUpdatedAt, "snapshot.sourceUpdatedAt");
+    if (
+      input.cutoffAt > input.knowledgeCutoffAt ||
+      input.providerFetchedAt > input.knowledgeCutoffAt ||
+      input.sourceUpdatedAt > input.knowledgeCutoffAt ||
+      input.sourceUpdatedAt > input.providerFetchedAt
+    ) {
+      throw new LedgerInvariantError(
+        "Snapshot sources must be available by the knowledge cutoff",
+      );
+    }
+    if (input.sourceManifest.length === 0) {
+      throw new LedgerInvariantError(
+        "Snapshot source provenance cannot be empty",
+      );
+    }
+    const sourceVersions = new Set<string>();
+    for (const source of input.sourceManifest) {
+      assertNonEmpty(source.sourceId, "snapshot source ID");
+      assertNonEmpty(source.sourceRevision, "snapshot source revision");
+      assertTimestamp(source.availableAt, "snapshot source availableAt");
+      if (!/^[a-f0-9]{64}$/.test(source.sourceHash)) {
+        throw new LedgerInvariantError(
+          "Snapshot source hash must be a SHA-256 hex digest",
+        );
+      }
+      if (
+        source.availableAt > input.knowledgeCutoffAt ||
+        source.availableAt > input.providerFetchedAt
+      ) {
+        throw new LedgerInvariantError(
+          "Snapshot source was unavailable when the provider response was fetched",
+        );
+      }
+      const sourceVersion = `${source.sourceId}\u0000${source.sourceRevision}`;
+      if (sourceVersions.has(sourceVersion)) {
+        throw new LedgerInvariantError(
+          "Snapshot source versions must be unique",
+        );
+      }
+      sourceVersions.add(sourceVersion);
+    }
     const contentHash = sha256Canonical({
       symbol: input.symbol,
       provider: input.provider,
       cutoffAt: input.cutoffAt,
+      knowledgeCutoffAt: input.knowledgeCutoffAt,
+      providerFetchedAt: input.providerFetchedAt,
+      sourceUpdatedAt: input.sourceUpdatedAt,
       latestMarketSession: input.latestMarketSession,
+      sourceManifest: input.sourceManifest,
       state: input.state,
     });
     const existing = this.#snapshots.find(
@@ -110,7 +166,11 @@ export class InMemoryLedgerRepository implements LedgerRepository {
         existing.symbol === input.symbol &&
         existing.provider === input.provider &&
         existing.cutoffAt === input.cutoffAt &&
+        existing.knowledgeCutoffAt === input.knowledgeCutoffAt &&
+        existing.providerFetchedAt === input.providerFetchedAt &&
+        existing.sourceUpdatedAt === input.sourceUpdatedAt &&
         existing.latestMarketSession === input.latestMarketSession &&
+        sameCanonical(existing.sourceManifest, input.sourceManifest) &&
         sameCanonical(existing.state, input.state)
       ) {
         return immutableClone(existing);
@@ -158,14 +218,57 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return immutableClone(judgment);
   }
 
+  insertPolicyDecision(
+    input: Omit<PolicyDecision, "contentHash" | "createdAt">,
+  ): PolicyDecision {
+    if (!this.#judgments.some((judgment) => judgment.id === input.judgmentId)) {
+      throw new LedgerNotFoundError(
+        `Judgment ${input.judgmentId} does not exist`,
+      );
+    }
+    const contentHash = sha256Canonical({
+      id: input.id,
+      judgmentId: input.judgmentId,
+      policyVersion: input.policyVersion,
+      action: input.action,
+      gateTrace: input.gateTrace,
+      ...(input.sizing === undefined ? {} : { sizing: input.sizing }),
+    });
+    const existing = this.#policyDecisions.find(
+      (decision) =>
+        decision.id === input.id || decision.judgmentId === input.judgmentId,
+    );
+    if (existing !== undefined) {
+      if (existing.contentHash === contentHash) return immutableClone(existing);
+      throw new LedgerConflictError(
+        "An immutable policy decision cannot be replaced",
+      );
+    }
+    const decision = immutableClone({
+      ...input,
+      contentHash,
+      createdAt: this.#createdAt(),
+    });
+    this.#policyDecisions.push(decision);
+    return immutableClone(decision);
+  }
+
   publishForecast(
     input: Omit<Forecast, "createdAt">,
   ): IdempotentResult<Forecast> {
     const replay = this.#forecasts.find(
       (forecast) => forecast.publicationKey === input.publicationKey,
     );
-    if (replay !== undefined)
+    if (replay !== undefined) {
+      const immutablePayload = structuredClone(replay);
+      Reflect.deleteProperty(immutablePayload, "createdAt");
+      if (!sameCanonical(immutablePayload, input)) {
+        throw new LedgerConflictError(
+          "A publication key cannot be reused with a different payload",
+        );
+      }
       return { created: false, value: immutableClone(replay) };
+    }
     if (this.#forecasts.some((forecast) => forecast.id === input.id)) {
       throw new LedgerConflictError(`Forecast ID ${input.id} already exists`);
     }
@@ -175,14 +278,39 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     const judgment = this.#judgments.find(
       (entry) => entry.id === input.judgmentId,
     );
-    if (snapshot === undefined || judgment === undefined) {
+    const policyDecision = this.#policyDecisions.find(
+      (entry) => entry.id === input.policyDecisionId,
+    );
+    if (
+      snapshot === undefined ||
+      judgment === undefined ||
+      policyDecision === undefined
+    ) {
       throw new LedgerNotFoundError(
-        "A forecast requires an existing snapshot and judgment",
+        "A forecast requires an existing snapshot, judgment, and policy decision",
       );
     }
-    if (judgment.snapshotId !== snapshot.id) {
+    if (
+      judgment.snapshotId !== snapshot.id ||
+      policyDecision.judgmentId !== judgment.id ||
+      snapshot.symbol !== input.symbol ||
+      snapshot.cutoffAt !== input.cutoffAt ||
+      snapshot.latestMarketSession !== input.latestMarketSession ||
+      judgment.modelVersion !== input.modelVersion ||
+      judgment.questionVersion !== input.questionVersion ||
+      policyDecision.policyVersion !== input.policyVersion
+    ) {
       throw new LedgerInvariantError(
-        "The judgment must use the forecast snapshot",
+        "Forecast dependencies or immutable versions do not match",
+      );
+    }
+    if (
+      this.#forecasts.some(
+        (forecast) => forecast.judgmentId === input.judgmentId,
+      )
+    ) {
+      throw new LedgerConflictError(
+        `Judgment ${input.judgmentId} already has a forecast`,
       );
     }
     if (input.horizonSessions < 1 || !Number.isInteger(input.horizonSessions)) {
@@ -276,6 +404,14 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     const active = rebuildLedgerProjection(this.readAll())
       .activeOutcomeByForecast[input.forecastId];
     if (input.correctionOfOutcomeId === undefined) {
+      const status = rebuildLedgerProjection(this.readAll()).forecastStatusById[
+        input.forecastId
+      ];
+      if (status !== "resolved") {
+        throw new LedgerInvariantError(
+          "A forecast must be resolved before recording an outcome",
+        );
+      }
       if (active !== undefined) {
         throw new LedgerInvariantError(
           "A second outcome must correct the active outcome",
@@ -308,6 +444,17 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     }
     if (input.sharesDelta !== 0 && input.symbol === undefined) {
       throw new LedgerInvariantError("A share delta requires a symbol");
+    }
+    if (
+      (input.type === "correction") !==
+      (input.correctionOfEventId !== undefined)
+    ) {
+      throw new LedgerInvariantError(
+        "Only a correction event may reference another paper event",
+      );
+    }
+    if (input.type === "correction") {
+      assertNonEmpty(input.reason ?? "", "paper correction reason");
     }
     if (
       input.correctionOfEventId !== undefined &&
@@ -539,9 +686,9 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return immutableClone(record);
   }
 
-  publicModeGate(at: string) {
+  publicModeGate(requirements: PublicModeRequirements) {
     return evaluatePublicModeGate({
-      at,
+      requirements,
       providerRights: this.#providerRights,
       processorTerms: this.#processorTerms,
     });
@@ -559,6 +706,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return immutableClone({
       snapshots: this.#snapshots,
       judgments: this.#judgments,
+      policyDecisions: this.#policyDecisions,
       forecasts: this.#forecasts,
       forecastEvents: this.#forecastEvents,
       outcomes: this.#outcomes,

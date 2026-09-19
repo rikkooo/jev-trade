@@ -109,12 +109,20 @@ export function rebuildLedgerProjection(state: LedgerState): LedgerProjection {
       );
     }
     if (
-      event.correctionOfEventId !== undefined &&
-      !paperEventIds.has(event.correctionOfEventId)
+      (event.type === "correction") !==
+      (event.correctionOfEventId !== undefined)
     ) {
       throw new LedgerInvariantError(
-        `Paper event ${event.id} has an unknown reference`,
+        `Paper event ${event.id} has invalid correction semantics`,
       );
+    }
+    if (event.type === "correction") {
+      const correctionId = event.correctionOfEventId;
+      if (correctionId === undefined || !paperEventIds.has(correctionId)) {
+        throw new LedgerInvariantError(
+          `Paper event ${event.id} has an unknown reference`,
+        );
+      }
     }
     if (
       !Number.isFinite(event.cashDelta) ||

@@ -6,6 +6,7 @@ import type {
   MarketSnapshot,
   Ohlcv,
   ProviderMarketData,
+  SourceReference,
 } from "../contracts";
 import { calculateMarketFeatures } from "./indicators";
 
@@ -21,6 +22,7 @@ export type MarketDataFailureCode =
   | "INVALID_OHLC"
   | "STALE_BAR"
   | "STALE_SOURCE"
+  | "FUTURE_SOURCE_REVISION"
   | "INSUFFICIENT_HISTORY"
   | "BENCHMARK_MISMATCH"
   | "ACTION_AMBIGUITY"
@@ -40,6 +42,7 @@ export class MarketDataValidationError extends Error {
 export interface BuildMarketSnapshotOptions {
   allowlistedSymbols: readonly string[];
   cutoffSession: string;
+  knowledgeCutoffAt: string;
   minimumSessions?: number;
   recentSplitWindow?: number;
 }
@@ -63,6 +66,31 @@ function isIsoInstant(value: string): boolean {
   }
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value;
+}
+
+function validateSourceReference(
+  source: SourceReference,
+  knowledgeCutoffAt: string,
+  providerFetchedAt: string,
+  label: string,
+): void {
+  if (
+    source.sourceId.trim().length === 0 ||
+    source.sourceRevision.trim().length === 0 ||
+    !/^[a-f0-9]{64}$/.test(source.sourceHash) ||
+    !isIsoInstant(source.availableAt)
+  ) {
+    fail("INVALID_IDENTITY", `${label} has invalid source provenance`);
+  }
+  if (
+    source.availableAt > knowledgeCutoffAt ||
+    source.availableAt > providerFetchedAt
+  ) {
+    fail(
+      "FUTURE_SOURCE_REVISION",
+      `${label} was not available by ${knowledgeCutoffAt}`,
+    );
+  }
 }
 
 function validateCalendar(input: ProviderMarketData, cutoff: string): string[] {
@@ -119,6 +147,8 @@ function validateBars(
   cutoff: string,
   calendar: readonly string[],
   minimumSessions: number,
+  knowledgeCutoffAt: string,
+  providerFetchedAt: string,
 ): MarketBar[] {
   const atCutoff = bars.filter((bar) => bar.session <= cutoff);
   const seen = new Set<string>();
@@ -127,12 +157,12 @@ function validateBars(
     if (bar.symbol !== symbol || !isIsoSession(bar.session)) {
       fail("INVALID_IDENTITY", `bar identity is invalid for ${symbol}`);
     }
-    if (!bar.sourceRevision) {
-      fail(
-        "INVALID_IDENTITY",
-        `${symbol} ${bar.session} has no source revision`,
-      );
-    }
+    validateSourceReference(
+      bar,
+      knowledgeCutoffAt,
+      providerFetchedAt,
+      `${symbol} ${bar.session}`,
+    );
     if (seen.has(bar.session))
       fail("DUPLICATE_BAR", `duplicate ${bar.session}`);
     if (bar.session <= previous) {
@@ -172,6 +202,8 @@ function validateActions(
   cutoff: string,
   selectedSessions: readonly string[],
   recentSplitWindow: number,
+  knowledgeCutoffAt: string,
+  providerFetchedAt: string,
 ): CorporateAction[] {
   const selected = actions.filter(
     (action) => action.effectiveSession <= cutoff,
@@ -186,11 +218,16 @@ function validateActions(
       seen.has(action.id) ||
       action.status !== "confirmed" ||
       action.adjustmentStatus !== "verified" ||
-      !isIsoSession(action.effectiveSession) ||
-      !action.sourceRevision
+      !isIsoSession(action.effectiveSession)
     ) {
       fail("ACTION_AMBIGUITY", `corporate action ${action.id} is not verified`);
     }
+    validateSourceReference(
+      action,
+      knowledgeCutoffAt,
+      providerFetchedAt,
+      `corporate action ${action.id}`,
+    );
     if (
       action.type === "split" &&
       (!Number.isFinite(action.splitRatio) || action.splitRatio <= 0)
@@ -216,6 +253,8 @@ function validateEventCalendar(
   symbol: string,
   cutoff: string,
   calendar: readonly string[],
+  knowledgeCutoffAt: string,
+  providerFetchedAt: string,
 ): Array<IssuerEvent & { sessionsAway: number }> {
   if (status.symbol !== symbol || status.asOfSession !== cutoff) {
     fail("STALE_EVENT_CALENDAR", "event status is not frozen at the cutoff");
@@ -223,6 +262,12 @@ function validateEventCalendar(
   if (!isIsoSession(status.completeThroughSession) || !status.sourceRevision) {
     fail("STALE_EVENT_CALENDAR", "event status has no valid coverage revision");
   }
+  validateSourceReference(
+    status,
+    knowledgeCutoffAt,
+    providerFetchedAt,
+    "event calendar",
+  );
   const cutoffIndex = calendar.indexOf(cutoff);
   const fifthFutureSession = calendar[cutoffIndex + 5];
   if (
@@ -281,10 +326,13 @@ export function buildMarketSnapshot(
   options: BuildMarketSnapshotOptions,
 ): MarketSnapshot {
   const cutoff = options.cutoffSession;
+  const knowledgeCutoffAt = options.knowledgeCutoffAt;
   const minimumSessions = Math.max(options.minimumSessions ?? 272, 272);
   const recentSplitWindow = options.recentSplitWindow ?? 20;
   if (
     !isIsoSession(cutoff) ||
+    !isIsoInstant(knowledgeCutoffAt) ||
+    knowledgeCutoffAt.slice(0, 10) < cutoff ||
     !Number.isInteger(input.requestedSessions) ||
     input.requestedSessions < 300
   ) {
@@ -321,12 +369,34 @@ export function buildMarketSnapshot(
     fail("STALE_SOURCE", "provider timestamps are invalid");
   }
   if (
+    input.fetchedAt > knowledgeCutoffAt ||
+    input.sourceUpdatedAt > knowledgeCutoffAt ||
+    input.sourceUpdatedAt > input.fetchedAt
+  ) {
+    fail(
+      "FUTURE_SOURCE_REVISION",
+      "provider response was not available by the knowledge cutoff",
+    );
+  }
+  validateSourceReference(
+    input,
+    knowledgeCutoffAt,
+    input.fetchedAt,
+    "provider response",
+  );
+  if (
     input.fetchedAt.slice(0, 10) < cutoff ||
     input.sourceUpdatedAt.slice(0, 10) < cutoff
   ) {
     fail("STALE_SOURCE", "provider source predates the cutoff session");
   }
 
+  validateSourceReference(
+    input.calendar,
+    knowledgeCutoffAt,
+    input.fetchedAt,
+    "session calendar",
+  );
   const calendar = validateCalendar(input, cutoff);
   const bars = validateBars(
     input.bars,
@@ -334,6 +404,8 @@ export function buildMarketSnapshot(
     cutoff,
     calendar,
     minimumSessions,
+    knowledgeCutoffAt,
+    input.fetchedAt,
   );
   const benchmarkBars = validateBars(
     input.benchmarkBars,
@@ -341,6 +413,8 @@ export function buildMarketSnapshot(
     cutoff,
     calendar,
     minimumSessions,
+    knowledgeCutoffAt,
+    input.fetchedAt,
   );
   if (
     bars.length !== benchmarkBars.length ||
@@ -355,6 +429,8 @@ export function buildMarketSnapshot(
     cutoff,
     sessions,
     recentSplitWindow,
+    knowledgeCutoffAt,
+    input.fetchedAt,
   );
   const benchmarkActions = validateActions(
     input.benchmarkActions,
@@ -362,12 +438,16 @@ export function buildMarketSnapshot(
     cutoff,
     sessions,
     0,
+    knowledgeCutoffAt,
+    input.fetchedAt,
   );
   const upcomingEvents = validateEventCalendar(
     input.eventCalendar,
     input.instrument.symbol,
     cutoff,
     calendar,
+    knowledgeCutoffAt,
+    input.fetchedAt,
   );
   const sessionsToKnownEvent = upcomingEvents.at(0)?.sessionsAway ?? null;
   const features = calculateMarketFeatures(
@@ -393,12 +473,54 @@ export function buildMarketSnapshot(
     missingData: [] as [],
   };
 
+  const sourceManifestByVersion = new Map<string, SourceReference>();
+  for (const source of [
+    input,
+    input.calendar,
+    input.eventCalendar,
+    ...bars,
+    ...benchmarkBars,
+    ...actions,
+    ...benchmarkActions,
+  ]) {
+    const reference = {
+      sourceId: source.sourceId,
+      sourceRevision: source.sourceRevision,
+      sourceHash: source.sourceHash,
+      availableAt: source.availableAt,
+    };
+    const key = `${reference.sourceId}\u0000${reference.sourceRevision}`;
+    const existing = sourceManifestByVersion.get(key);
+    if (
+      existing !== undefined &&
+      (existing.sourceHash !== reference.sourceHash ||
+        existing.availableAt !== reference.availableAt)
+    ) {
+      fail(
+        "INVALID_IDENTITY",
+        `source ${reference.sourceId} revision ${reference.sourceRevision} is inconsistent`,
+      );
+    }
+    sourceManifestByVersion.set(key, reference);
+  }
+  const sourceManifest = [...sourceManifestByVersion.values()].sort(
+    (left, right) => {
+      const leftKey = `${left.sourceId}\u0000${left.sourceRevision}\u0000${left.sourceHash}`;
+      const rightKey = `${right.sourceId}\u0000${right.sourceRevision}\u0000${right.sourceHash}`;
+      return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    },
+  );
+
   return {
     schemaVersion: "market-snapshot-v1",
     provider: input.provider,
     instrument: structuredClone(input.instrument),
     benchmark: structuredClone(input.benchmark),
     cutoffSession: cutoff,
+    knowledgeCutoffAt,
+    providerFetchedAt: input.fetchedAt,
+    providerSourceUpdatedAt: input.sourceUpdatedAt,
+    sourceManifest,
     calendarRevision: input.calendar.sourceRevision,
     eventCalendarRevision: input.eventCalendar.sourceRevision,
     bars,
