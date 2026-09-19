@@ -16,7 +16,6 @@ export function BlindDecisionBoundary({
   const [forecast, setForecast] = useState<ForecastView | null>(null);
 
   const requestReveal = useCallback(async () => {
-    if (forecast) return;
     const response = await fetch(
       `/api/v1/fixture-reveal/${encodeURIComponent(reveal.forecastId)}`,
       { cache: "no-store", headers: { Accept: "application/json" } },
@@ -27,13 +26,14 @@ export function BlindDecisionBoundary({
       throw new Error("fixture reveal identity mismatch");
     }
     setForecast(payload.forecast);
-  }, [forecast, reveal.forecastId]);
+  }, [reveal.forecastId]);
 
   return (
     <>
       <BlindPick
         forecastId={reveal.forecastId}
         symbol={reveal.symbol}
+        revealed={forecast !== null}
         onRevealRequest={requestReveal}
       />
       {forecast ? (

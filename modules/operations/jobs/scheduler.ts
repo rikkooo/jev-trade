@@ -215,15 +215,53 @@ export function enqueueDueOutcomeResolutions(
   ) {
     throw new Error("latest available session is absent from the calendar");
   }
+  let preparedCalendar:
+    | {
+        readonly sessions: readonly string[];
+        readonly indexBySession: ReadonlyMap<string, number>;
+      }
+    | undefined;
+
+  const targetSessionFor = (forecast: (typeof input.forecasts)[number]) => {
+    if (
+      !Number.isInteger(forecast.horizonSessions) ||
+      forecast.horizonSessions < 1
+    ) {
+      throw new Error("horizonSessions must be a positive integer");
+    }
+    if (
+      !input.calendar.some(({ session }) => session === forecast.cutoffSession)
+    ) {
+      throw new Error("cutoff session is absent from the exchange calendar");
+    }
+    if (preparedCalendar === undefined) {
+      // Validate once at the same point the first published forecast would have
+      // called nthEligibleSession, then reuse the ordered calendar for the batch.
+      eligibleSessionsAfter(forecast.cutoffSession, input.calendar);
+      const sessions = input.calendar.map(({ session }) => session);
+      preparedCalendar = {
+        sessions,
+        indexBySession: new Map(
+          sessions.map((session, index) => [session, index] as const),
+        ),
+      };
+    }
+    const cutoffIndex = preparedCalendar.indexBySession.get(
+      forecast.cutoffSession,
+    )!;
+    const target =
+      preparedCalendar.sessions[cutoffIndex + forecast.horizonSessions];
+    if (target === undefined) {
+      throw new Error("calendar does not cover the forecast horizon");
+    }
+    return target;
+  };
+
   return [...input.forecasts]
     .sort((left, right) => left.forecastId.localeCompare(right.forecastId))
     .flatMap((forecast) => {
       if (forecast.status !== "published") return [];
-      const targetSession = nthEligibleSession(
-        forecast.cutoffSession,
-        forecast.horizonSessions,
-        input.calendar,
-      );
+      const targetSession = targetSessionFor(forecast);
       if (targetSession > input.latestAvailableSession) return [];
       const forecastId = forecast.forecastId.trim();
       const symbol = forecast.symbol.trim().toUpperCase();

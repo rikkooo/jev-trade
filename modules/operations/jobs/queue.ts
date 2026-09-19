@@ -183,6 +183,7 @@ export class InMemoryJobQueue implements JobQueue {
     positiveInteger(input.leaseMs, "leaseMs");
     const workerId = nonEmpty(input.workerId, "workerId");
 
+    let candidate: MutableJob | undefined;
     for (const job of this.#jobs.values()) {
       if (
         job.status === "leased" &&
@@ -199,20 +200,19 @@ export class InMemoryJobQueue implements JobQueue {
         }
         job.updatedAt = now;
       }
-    }
 
-    const candidate = [...this.#jobs.values()]
-      .filter(
-        (job) =>
-          (job.status === "queued" || job.status === "retryable") &&
-          toTimestamp(job.availableAt, "job availability") <= nowMs &&
-          job.attemptCount < job.maxAttempts,
-      )
-      .sort((left, right) =>
-        left.availableAt === right.availableAt
-          ? left.id.localeCompare(right.id)
-          : left.availableAt.localeCompare(right.availableAt),
-      )[0];
+      if (
+        (job.status === "queued" || job.status === "retryable") &&
+        toTimestamp(job.availableAt, "job availability") <= nowMs &&
+        job.attemptCount < job.maxAttempts &&
+        (candidate === undefined ||
+          job.availableAt < candidate.availableAt ||
+          (job.availableAt === candidate.availableAt &&
+            job.id.localeCompare(candidate.id) < 0))
+      ) {
+        candidate = job;
+      }
+    }
     if (candidate === undefined) return null;
 
     candidate.attemptCount += 1;

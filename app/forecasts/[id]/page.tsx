@@ -14,9 +14,9 @@ import { ProbabilityBars } from "@/components/probability-bars";
 import { RiskTriptych } from "@/components/risk-triptych";
 import { StatusBadge } from "@/components/status-badge";
 import {
-  FIXTURE_FORECASTS,
   formatPercent,
   formatUtc,
+  getFixtureForecastStaticParams,
   getForecastById,
 } from "@/modules/view-model";
 
@@ -25,7 +25,7 @@ interface ForecastPageProps {
 }
 
 export function generateStaticParams() {
-  return FIXTURE_FORECASTS.map(({ id }) => ({ id }));
+  return getFixtureForecastStaticParams();
 }
 
 export async function generateMetadata({

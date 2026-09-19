@@ -8,6 +8,7 @@ import type { Direction } from "@/modules/view-model";
 interface BlindPickProps {
   readonly forecastId: string;
   readonly symbol: string;
+  readonly revealed: boolean;
   readonly onRevealRequest: () => Promise<void>;
 }
 
@@ -22,10 +23,10 @@ function revealKey(forecastId: string): string {
 export function BlindPick({
   forecastId,
   symbol,
+  revealed,
   onRevealRequest,
 }: BlindPickProps) {
   const [pick, setPick] = useState<Direction | null>(null);
-  const [revealed, setRevealed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +44,6 @@ export function BlindPick({
     if (wasRevealed) {
       setLoading(true);
       void onRevealRequest()
-        .then(() => setRevealed(true))
         .catch(() => setError("The fixture reveal could not be loaded."))
         .finally(() => setLoading(false));
     }
@@ -62,7 +62,6 @@ export function BlindPick({
     try {
       await onRevealRequest();
       window.localStorage.setItem(revealKey(forecastId), "true");
-      setRevealed(true);
     } catch {
       setError(
         "The fixture reveal could not be loaded. Your pick remains frozen locally.",

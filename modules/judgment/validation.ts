@@ -11,6 +11,7 @@ import {
   type ScoreQuestionId,
   type ValidatedDecisionsResponse,
 } from "./contracts";
+import { deepFreeze } from "./deep-freeze";
 import { JudgmentProviderError } from "./errors";
 import { SCORE_LEGENDS } from "./questions/v1";
 
@@ -152,14 +153,6 @@ function usage(value: unknown): JudgmentUsage {
     output_tokens: input.output_tokens as number,
     ...(input.cost === undefined ? {} : { cost: input.cost as number }),
   });
-}
-
-function deepFreeze<T>(value: T): T {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    Object.values(value).forEach(deepFreeze);
-  }
-  return value;
 }
 
 export function validateDecisionsResponse(

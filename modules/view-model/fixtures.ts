@@ -499,6 +499,10 @@ export const FIXTURE_FORECASTS: readonly ForecastView[] = [
   correctedLuma,
 ];
 
+export function getFixtureForecastStaticParams(): { id: string }[] {
+  return FIXTURE_FORECASTS.map(({ id }) => ({ id }));
+}
+
 export const FIXTURE_PORTFOLIO: PortfolioView = {
   startingEquity: 100_000,
   equity: 100_684,

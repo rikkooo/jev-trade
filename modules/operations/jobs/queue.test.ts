@@ -40,6 +40,35 @@ describe("in-memory job queue", () => {
     expect(claimed.filter(Boolean)).toHaveLength(1);
   });
 
+  it("claims the earliest available job and uses its id as a stable tie-breaker", () => {
+    const jobs = queue();
+    jobs.enqueue({
+      operationKey: "eod:LATE:2026-09-21",
+      kind: "eod_evaluation",
+      payload: { symbol: "LATE" },
+      availableAt: "2026-09-21T21:59:00.000Z",
+      maxAttempts: 2,
+    });
+    const firstAtSameTime = jobs.enqueue({
+      operationKey: "eod:FIRST:2026-09-21",
+      kind: "eod_evaluation",
+      payload: { symbol: "FIRST" },
+      availableAt: "2026-09-21T21:58:00.000Z",
+      maxAttempts: 2,
+    }).job;
+    jobs.enqueue({
+      operationKey: "eod:SECOND:2026-09-21",
+      kind: "eod_evaluation",
+      payload: { symbol: "SECOND" },
+      availableAt: "2026-09-21T21:58:00.000Z",
+      maxAttempts: 2,
+    });
+
+    expect(
+      jobs.claim({ workerId: "ordered", now: start, leaseMs: 30_000 })?.jobId,
+    ).toBe(firstAtSameTime.id);
+  });
+
   it("rejects reuse of an operation key with a different immutable payload", () => {
     const jobs = queue();
     jobs.enqueue({

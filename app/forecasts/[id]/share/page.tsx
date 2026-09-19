@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 
 import { ProbabilityBars } from "@/components/probability-bars";
 import {
-  FIXTURE_FORECASTS,
   formatUtc,
+  getFixtureForecastStaticParams,
   getForecastById,
 } from "@/modules/view-model";
 
@@ -13,7 +13,7 @@ interface SharePageProps {
   readonly params: Promise<{ id: string }>;
 }
 export function generateStaticParams() {
-  return FIXTURE_FORECASTS.map(({ id }) => ({ id }));
+  return getFixtureForecastStaticParams();
 }
 
 export default async function SharePage({ params }: SharePageProps) {

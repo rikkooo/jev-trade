@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
+import { useCallback, useState } from "react";
 import {
   cleanup,
   fireEvent,
@@ -27,13 +28,37 @@ beforeEach(() => {
 });
 
 describe("BlindPick", () => {
+  function BlindPickHarness({
+    forecastId,
+    symbol,
+    onReveal,
+  }: {
+    forecastId: string;
+    symbol: string;
+    onReveal: () => Promise<void>;
+  }) {
+    const [revealed, setRevealed] = useState(false);
+    const reveal = useCallback(async () => {
+      await onReveal();
+      setRevealed(true);
+    }, [onReveal]);
+    return (
+      <BlindPick
+        forecastId={forecastId}
+        symbol={symbol}
+        revealed={revealed}
+        onRevealRequest={reveal}
+      />
+    );
+  }
+
   it("freezes one browser-local choice and reveals without embedding the call", async () => {
     const onRevealRequest = vi.fn().mockResolvedValue(undefined);
     const { unmount } = render(
-      <BlindPick
+      <BlindPickHarness
         forecastId="01K5D3JEVACME5SPRINT0001"
         symbol="ACME"
-        onRevealRequest={onRevealRequest}
+        onReveal={onRevealRequest}
       />,
     );
 
@@ -49,10 +74,10 @@ describe("BlindPick", () => {
     unmount();
 
     render(
-      <BlindPick
+      <BlindPickHarness
         forecastId="01K5D3JEVACME5SPRINT0001"
         symbol="ACME"
-        onRevealRequest={onRevealRequest}
+        onReveal={onRevealRequest}
       />,
     );
     await screen.findByText(/Decision workspace unlocked/i);
@@ -61,10 +86,10 @@ describe("BlindPick", () => {
 
   it("can reveal without creating a pick", async () => {
     render(
-      <BlindPick
+      <BlindPickHarness
         forecastId="01K5D3JEVACME5SPRINT0002"
         symbol="ACME"
-        onRevealRequest={vi.fn().mockResolvedValue(undefined)}
+        onReveal={vi.fn().mockResolvedValue(undefined)}
       />,
     );
 

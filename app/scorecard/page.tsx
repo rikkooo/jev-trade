@@ -6,16 +6,16 @@ import { FIXTURE_SCORECARD, formatUtc } from "@/modules/view-model";
 
 export const metadata: Metadata = { title: "Prospective scorecard" };
 
-const metrics = [
-  ["Multiclass Brier", FIXTURE_SCORECARD.metrics.brierScore],
-  ["Log loss", FIXTURE_SCORECARD.metrics.logLoss],
-  ["Publication success", FIXTURE_SCORECARD.metrics.publicationSuccessRate],
-  ["Coverage rate", FIXTURE_SCORECARD.metrics.coverageRate],
-  ["Pass / wait rate", FIXTURE_SCORECARD.metrics.passRate],
-  ["Hit rate · secondary", FIXTURE_SCORECARD.metrics.hitRate],
-  ["Paper return", FIXTURE_SCORECARD.metrics.paperReturn],
-  ["Maximum drawdown", FIXTURE_SCORECARD.metrics.maximumDrawdown],
-  ["Turnover", FIXTURE_SCORECARD.metrics.turnover],
+const METRIC_LABELS = [
+  "Multiclass Brier",
+  "Log loss",
+  "Publication success",
+  "Coverage rate",
+  "Pass / wait rate",
+  "Hit rate · secondary",
+  "Paper return",
+  "Maximum drawdown",
+  "Turnover",
 ] as const;
 
 export default function ScorecardPage() {
@@ -86,7 +86,7 @@ export default function ScorecardPage() {
           <CircleDashed aria-hidden="true" />
         </div>
         <div className="metric-placeholder-grid">
-          {metrics.map(([label]) => (
+          {METRIC_LABELS.map((label) => (
             <article key={label}>
               <span>{label}</span>
               <strong>—</strong>

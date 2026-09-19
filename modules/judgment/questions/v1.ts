@@ -3,14 +3,7 @@ import type {
   ScoreQuestionId,
   ScoreLevel,
 } from "../contracts";
-
-function deepFreeze<T>(value: T): T {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child);
-  }
-  return value;
-}
+import { deepFreeze } from "../deep-freeze";
 
 export const SCORE_LEGENDS: Readonly<
   Record<ScoreQuestionId, Readonly<Record<ScoreLevel, string>>>

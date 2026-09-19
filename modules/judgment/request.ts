@@ -1,6 +1,7 @@
 import type { MarketFeatures } from "@/modules/market/contracts";
 
 import { canonicalHash, canonicalJson } from "./canonical";
+import { deepFreeze } from "./deep-freeze";
 import {
   DEFAULT_MAX_REQUEST_BYTES,
   JUDGMENT_CONTRACT_VERSION,
@@ -13,14 +14,6 @@ import {
 } from "./contracts";
 import { JudgmentProviderError } from "./errors";
 import { JUDGMENT_QUESTIONS_V1 } from "./questions/v1";
-
-function deepFreeze<T>(value: T): T {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    for (const child of Object.values(value)) deepFreeze(child);
-  }
-  return value;
-}
 
 function assertExactKeys(value: object, expected: readonly string[]): void {
   const actual = Object.keys(value).sort();

@@ -36,6 +36,13 @@ function roundHalfAwayFromZero(value: number): number {
   return value < 0 ? -Math.round(-value) : Math.round(value);
 }
 
+function eventProximityPoints(sessionsToKnownEvent: number | null): number {
+  if (sessionsToKnownEvent === null) return 0;
+  if (sessionsToKnownEvent <= 2) return 15;
+  if (sessionsToKnownEvent <= 5) return 8;
+  return 0;
+}
+
 export function classifyMarketRisk(index: number): MarketRiskBand {
   if (!Number.isFinite(index) || index < 0 || index > 100) {
     throw new Error(
@@ -81,14 +88,7 @@ export function computeMarketRisk(inputs: MarketRiskInputs): MarketRiskResult {
     drawdown: 20 * clamp(Math.abs(Math.min(inputs.drawdown60, 0)) / 0.2, 0, 1),
     normalizedAtr: 20 * clampUnit((inputs.normalizedAtr14 - 0.01) / 0.05),
     gap: 10 * clampUnit(inputs.gapRiskPercentile),
-    eventProximity:
-      inputs.sessionsToKnownEvent === null
-        ? 0
-        : inputs.sessionsToKnownEvent <= 2
-          ? 15
-          : inputs.sessionsToKnownEvent <= 5
-            ? 8
-            : 0,
+    eventProximity: eventProximityPoints(inputs.sessionsToKnownEvent),
   };
   const index = clamp(
     roundHalfAwayFromZero(
