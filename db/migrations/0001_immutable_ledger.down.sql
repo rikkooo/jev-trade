@@ -1,0 +1,44 @@
+BEGIN;
+
+DROP VIEW IF EXISTS analytics_aggregate;
+DROP VIEW IF EXISTS paper_position_projection;
+DROP VIEW IF EXISTS active_forecast_outcomes;
+DROP VIEW IF EXISTS forecast_current_states;
+
+DROP FUNCTION IF EXISTS purge_expired_identifiers(text, timestamptz);
+DROP FUNCTION IF EXISTS record_analytics_event(text, boolean, text, char(64), timestamptz, text, text, text);
+DROP FUNCTION IF EXISTS record_visitor_pick(text, text, char(64), timestamptz, text, text);
+DROP FUNCTION IF EXISTS publish_forecast(jsonb, text);
+DROP FUNCTION IF EXISTS public_mode_gate(timestamptz);
+
+DROP TABLE IF EXISTS identifier_expiry_runs;
+DROP TABLE IF EXISTS analytics_events;
+DROP TABLE IF EXISTS visitor_pick_results;
+DROP TABLE IF EXISTS visitor_picks;
+DROP TABLE IF EXISTS private_identifiers;
+DROP TABLE IF EXISTS ledger_roots;
+DROP TABLE IF EXISTS job_attempt_events;
+DROP TABLE IF EXISTS job_attempts;
+DROP TABLE IF EXISTS job_operations;
+DROP TABLE IF EXISTS paper_events;
+DROP TABLE IF EXISTS forecast_outcomes;
+DROP TABLE IF EXISTS forecast_events;
+DROP TABLE IF EXISTS forecasts;
+DROP TABLE IF EXISTS policy_decisions;
+DROP TABLE IF EXISTS judgment_answers;
+DROP TABLE IF EXISTS judgment_runs;
+DROP TABLE IF EXISTS evidence_descriptors;
+DROP TABLE IF EXISTS snapshot_bar_refs;
+DROP TABLE IF EXISTS market_snapshots;
+DROP TABLE IF EXISTS market_bars;
+DROP TABLE IF EXISTS processor_terms;
+DROP TABLE IF EXISTS provider_rights;
+DROP TABLE IF EXISTS symbols;
+
+DROP FUNCTION IF EXISTS validate_job_attempt_event();
+DROP FUNCTION IF EXISTS validate_forecast_outcome();
+DROP FUNCTION IF EXISTS validate_forecast_dependencies();
+DROP FUNCTION IF EXISTS validate_forecast_event();
+DROP FUNCTION IF EXISTS reject_immutable_mutation();
+
+COMMIT;
