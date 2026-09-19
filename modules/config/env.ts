@@ -16,6 +16,8 @@ export const serverEnvSchema = z
     CRON_SECRET: z.string().min(32).optional(),
     MARKET_DATA_API_KEY: z.string().min(1).optional(),
     OPERATOR_TOKEN: z.string().min(32).optional(),
+    DATA_RIGHTS_RECORD_ID: z.string().min(1).optional(),
+    PUBLIC_DISCLOSURE_VERSION: z.string().min(1).optional(),
     VERCEL_GIT_COMMIT_SHA: z.string().optional(),
     VERCEL_ENV: z.string().optional(),
   })
@@ -28,6 +30,14 @@ export const serverEnvSchema = z
       });
     }
 
+    if (env.DURABLE_WRITES && env.APP_MODE !== "live") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["DURABLE_WRITES"],
+        message: "requires APP_MODE=live",
+      });
+    }
+
     if (env.PUBLIC_MARKET_DATA && env.APP_MODE !== "live") {
       ctx.addIssue({
         code: "custom",
@@ -36,10 +46,34 @@ export const serverEnvSchema = z
       });
     }
 
+    if (env.PUBLIC_MARKET_DATA && !env.DURABLE_WRITES) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["PUBLIC_MARKET_DATA"],
+        message: "requires DURABLE_WRITES=true",
+      });
+    }
+
     if (env.PUBLIC_MARKET_DATA && !env.MARKET_DATA_API_KEY) {
       ctx.addIssue({
         code: "custom",
         path: ["MARKET_DATA_API_KEY"],
+        message: "is required when PUBLIC_MARKET_DATA=true",
+      });
+    }
+
+    if (env.PUBLIC_MARKET_DATA && !env.DATA_RIGHTS_RECORD_ID) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["DATA_RIGHTS_RECORD_ID"],
+        message: "is required when PUBLIC_MARKET_DATA=true",
+      });
+    }
+
+    if (env.PUBLIC_MARKET_DATA && !env.PUBLIC_DISCLOSURE_VERSION) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["PUBLIC_DISCLOSURE_VERSION"],
         message: "is required when PUBLIC_MARKET_DATA=true",
       });
     }

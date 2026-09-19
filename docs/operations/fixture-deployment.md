@@ -11,6 +11,8 @@ database credentials, and it must fail closed for server-side mutations.
 - Do not place credentials in `.env.local`; fixture mode does not require them.
 - Confirm the UI says `fixture demonstration` and does not say live,
   prospective, verified, or market-current.
+- Confirm `vercel.json` contains no Cron schedule. Fixture deployment has no
+  durable backend and must not create a recurring failed invocation.
 - Create an operation ID and an empty receipt using the standard in
   [README](README.md#receipt-standard).
 
@@ -160,6 +162,12 @@ Expected results:
 - mutation and Cron routes are absent or return a safe no-op/fail-closed status;
 - responsive, keyboard, error, and local-pick flows work.
 
+Run the automated form of these checks as well:
+
+```bash
+pnpm verify:deployment -- "$preview_url"
+```
+
 ## Vercel production fixture deployment
 
 Deploy production only after the preview receipt is reviewed:
@@ -176,6 +184,7 @@ production_url='https://<IMMUTABLE-PRODUCTION-DEPLOYMENT-HOST>'
 curl --fail --silent --show-error "$production_url/health/live"
 curl --fail --silent --show-error "$production_url/api/health" | jq .
 curl --fail --silent --show-error --head "$production_url/" | sed -n '1,30p'
+pnpm verify:deployment -- "$production_url"
 ```
 
 If the custom domain already points to this project, repeat the same checks
@@ -200,3 +209,21 @@ ownership and DNS changes remain with the project owner.
 - [ ] Reviewer and UTC review time recorded.
 
 Unchecked items block the deployment receipt from being called complete.
+
+## Enabling Cron later
+
+The fixture `vercel.json` intentionally schedules no jobs. A durable release may
+add a production Cron entry for `GET /api/internal/cron` only after all of these
+are true:
+
+- `APP_MODE=live` and `DURABLE_WRITES=true` pass configuration validation;
+- the database-backed queue adapter has replaced the fixture route executor;
+- `CRON_SECRET` is a Vercel Production secret and is at least 32 characters;
+- provider rights, root attestation, budgets, alerting, and rollback gates are
+  recorded;
+- an authenticated manual invocation proves idempotency and safe retry.
+
+Vercel sends Cron requests as `GET`, adds `Authorization: Bearer <CRON_SECRET>`
+when that project secret exists, and identifies the scheduler with
+`vercel-cron/1.0`. The route requires all three properties and derives its own
+time-bucket idempotency key.

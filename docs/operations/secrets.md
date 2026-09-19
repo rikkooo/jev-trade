@@ -15,7 +15,7 @@ Never use a `NEXT_PUBLIC_` prefix for a credential.
 | `DATABASE_MIGRATION_URL` | One-shot migration job | Direct migration owner | Operator secret store or tightly scoped release environment; not steady-state function env | Neon migration role/password |
 | `CRON_SECRET` | Vercel Cron and Cron handlers | Authenticate only scheduled routes; 32+ random bytes | Vercel sensitive Production env | Replace Vercel env and redeploy |
 | `OPERATOR_TOKEN` | Local operator scripts if still required | Narrow correction/replay/version procedures | Operator password manager; short-lived preferred | Application/operator credential issuer |
-| GitHub attestation publisher token | Isolated root publisher | Fine-grained `repository_dispatch` to one repository; no release or application-data access | Isolated publisher host/secret store | GitHub fine-grained token settings |
+| `GITHUB_ROOT_DISPATCH_TOKEN` | Isolated root publisher | One repository; only the permissions GitHub currently requires for `repository_dispatch` | Isolated publisher host/secret store; never Vercel or application env | GitHub fine-grained token settings |
 | Backup destination credential | Backup job only | Write new encrypted objects; read/delete only if retention needs it | Backup host secret store | Destination provider IAM |
 | `age` decryption key | Restore operator only | Decrypt Jev Trade backups | Offline/off-host secret store; never Vercel or application host | Replace recipient for future backups; treat exposed archives separately |
 | Neon owner/API credential | Provisioning/recovery operator | Project/branch administration | Operator password manager or provider integration | Neon account/integration settings |
@@ -110,9 +110,18 @@ change affects only a later deployment, so create and verify a new deployment.
 
 - Rotate on the isolated publisher host. Application containers must remain
   unable to read it.
-- Scope the token to one repository and the single dispatch operation.
-- Verify a fixture root dispatch and Sigstore/OIDC attestation chain before
-  revoking the old token.
+- Scope the token to one repository. GitHub currently requires repository
+  `Contents: write` for a fine-grained token to create a `repository_dispatch`;
+  that permission is broader than the single endpoint. Keep the identity off
+  Vercel, monitor its audit trail, and prefer a GitHub App or outbound proxy that
+  allowlists only dispatch requests before enabling live attestation.
+- Require both `ROOT_ATTESTATION_ENABLED=true` on the isolated publisher and the
+  repository variables `LEDGER_ATTESTATION_ENABLED=true` and
+  `LEDGER_ROOT_ARCHIVE_ENABLED=true`. Fixture mode leaves all three disabled.
+- Verify a non-scored durable test root through dispatch, OIDC attestation, and
+  the append-only `ledger-roots` branch before revoking the old token. The manual
+  fixture proof is local evidence only and must never be described as externally
+  timestamped.
 
 ### Backup encryption and destination
 
@@ -155,4 +164,3 @@ change affects only a later deployment, so create and verify a new deployment.
 - [ ] Preview/Production isolation checked.
 - [ ] No secret value appears in receipt, logs, Git, or command history.
 - [ ] Reviewer recorded.
-

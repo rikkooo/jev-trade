@@ -16,6 +16,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "verify:forecast": "tsx scripts/verify-forecast.ts",
+    "verify:deployment": "tsx scripts/verify-deployment.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:verify": "tsx scripts/verify-database.ts",
     "judgment:run": "tsx scripts/run-judgment.ts"

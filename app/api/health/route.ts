@@ -14,7 +14,8 @@ export async function GET(): Promise<Response> {
         database: Boolean(env.DATABASE_URL),
         durableWrites: env.DURABLE_WRITES,
         publicMarketData: env.PUBLIC_MARKET_DATA,
-        liveJudgments: Boolean(env.OPENROUTER_API_KEY),
+        liveJudgments:
+          env.APP_MODE === "live" && Boolean(env.OPENROUTER_API_KEY),
       },
       deployment: {
         environment: env.VERCEL_ENV ?? "local",

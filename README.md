@@ -16,7 +16,7 @@ The product is a game and public experiment. It does not connect to a broker, ac
 
 The app runs on Node.js 22 with Next.js 16 and pnpm. Vercel is the public web runtime; the HQ box is the canonical build and validation environment. A portable Docker stack remains available for local validation and recovery.
 
-The repository currently includes the application foundation, capability-gated configuration, health routes, security headers, structured secret redaction, Vercel and Docker deployment definitions, and the research/decision records that govern the implementation. Work follows the nine units in the [implementation plan](docs/plans/2026-09-19-1020-feature-jev-trade-prototype-plan.md).
+The repository now contains the complete public fixture prototype: blind picks, decision workspaces, the house paper portfolio, immutable audit views, a zero-sample prospective scorecard, deterministic scheduling and scoring, reproducible fixture proofs, capability-gated configuration, and Vercel/Docker release paths. The live data, durable write, and external attestation paths remain disabled until their recorded launch gates pass. Work follows the nine units in the [implementation plan](docs/plans/2026-09-19-1020-feature-jev-trade-prototype-plan.md).
 
 Two deployment modes are deliberate:
 
@@ -46,11 +46,14 @@ pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
+pnpm test:integration
+pnpm test:e2e
+pnpm verify:forecast -- --id 01K4MESA1SPRINTRES00001
 pnpm build
 docker compose -f deploy/compose.yaml config
 ```
 
-The full verification contract also includes integration, browser, forecast-reconstruction, audit, container, restore, and rollback gates as their implementation units land.
+Deployment verification adds `pnpm verify:deployment -- <origin>`, dependency audit, the read-only container build, a release receipt, and rollback evidence.
 
 ## Trust boundaries
 

@@ -16,6 +16,15 @@ describe("parseServerEnv", () => {
     );
   });
 
+  it("does not permit durable writes in fixture mode", () => {
+    expect(() =>
+      parseServerEnv({
+        DURABLE_WRITES: "true",
+        DATABASE_URL: "postgres://configured",
+      }),
+    ).toThrow("DURABLE_WRITES: requires APP_MODE=live");
+  });
+
   it("rejects public market data outside live mode", () => {
     expect(() =>
       parseServerEnv({
@@ -23,5 +32,36 @@ describe("parseServerEnv", () => {
         MARKET_DATA_API_KEY: "configured",
       }),
     ).toThrow("PUBLIC_MARKET_DATA: requires APP_MODE=live");
+  });
+
+  it("requires a rights record and disclosure version for public data", () => {
+    const base = {
+      APP_MODE: "live",
+      PUBLIC_MARKET_DATA: "true",
+      DURABLE_WRITES: "true",
+      DATABASE_URL: "postgres://configured",
+      MARKET_DATA_API_KEY: "configured",
+    };
+
+    expect(() => parseServerEnv(base)).toThrow(
+      "DATA_RIGHTS_RECORD_ID: is required when PUBLIC_MARKET_DATA=true",
+    );
+    expect(() =>
+      parseServerEnv({ ...base, DATA_RIGHTS_RECORD_ID: "rights-2026-09" }),
+    ).toThrow(
+      "PUBLIC_DISCLOSURE_VERSION: is required when PUBLIC_MARKET_DATA=true",
+    );
+  });
+
+  it("requires durable storage before enabling public market data", () => {
+    expect(() =>
+      parseServerEnv({
+        APP_MODE: "live",
+        PUBLIC_MARKET_DATA: "true",
+        MARKET_DATA_API_KEY: "configured",
+        DATA_RIGHTS_RECORD_ID: "rights-2026-09",
+        PUBLIC_DISCLOSURE_VERSION: "disclosure-v1",
+      }),
+    ).toThrow("PUBLIC_MARKET_DATA: requires DURABLE_WRITES=true");
   });
 });

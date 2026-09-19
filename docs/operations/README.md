@@ -27,6 +27,8 @@ accepts money, or provides personalized allocation advice.
 
 - [Fixture deployment](fixture-deployment.md): Vercel and local Docker build,
   deploy, verification, and receipts.
+- [Fixture release receipt template](release-receipt-template.md): redacted
+  identity, build, runtime, and rollback evidence for each release.
 - [Secrets](secrets.md): inventory, storage, rotation, revocation, and exposure
   response.
 - [Neon and Postgres](database.md): provisioning, migrations, roles, backups,
@@ -90,4 +92,3 @@ of an action after it is performed; an unchecked template is not evidence.
    successful Vercel deployment or valid API key does not grant display rights.
 6. Rolling back the application does not roll back Postgres. Use the database
    recovery process and preserve the original ledger.
-
