@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { canonicalHash, canonicalJson } from "../canonical";
 import { buildJudgmentRequest, sanitizeJudgmentError } from "../index";
 import { buildDemoCompactState } from "../fixtures/demo-state";
 import { validResponse } from "../validation.test";
@@ -128,6 +129,33 @@ describe("OpenRouterJevProvider", () => {
       new OpenRouterJevProvider({ apiKey: API_KEY, fetcher }).evaluate(
         forged as unknown as typeof valid,
       ),
+    ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("rejects forged strategy geometry before making a network call", async () => {
+    const fetcher = vi.fn(async () => response(validResponse()));
+    const valid = request();
+    const wire = {
+      ...valid.wire,
+      state: {
+        ...valid.wire.state,
+        horizon_sessions: 5,
+        outcome_definition: {
+          ...valid.wire.state.outcome_definition,
+          flat_band_percent: 1.5,
+        },
+      },
+    };
+    const forged = {
+      ...valid,
+      wire,
+      canonicalBody: canonicalJson(wire),
+      requestHash: canonicalHash(wire),
+    };
+
+    await expect(
+      new OpenRouterJevProvider({ apiKey: API_KEY, fetcher }).evaluate(forged),
     ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
     expect(fetcher).not.toHaveBeenCalled();
   });

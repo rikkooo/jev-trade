@@ -82,6 +82,57 @@ describe("the versioned Jev judgment request", () => {
       }),
     ).toThrowError(expect.objectContaining({ code: "INVALID_REQUEST" }));
   });
+
+  it.each([
+    ["position", 20, 2],
+    ["sprint", 1, 0.5],
+    ["sprint", 5, 1.5],
+  ] as const)(
+    "freezes the %s %i-session outcome band at %f%%",
+    (strategyMode, horizonSessions, flatBandPercent) => {
+      const derived = buildJudgmentRequest({
+        marketState: compactState(),
+        strategyMode,
+        horizonSessions,
+        evaluationMode: "sandbox",
+      });
+      const explicit = buildJudgmentRequest({
+        marketState: compactState(),
+        strategyMode,
+        horizonSessions,
+        flatBandPercent,
+        evaluationMode: "sandbox",
+      });
+
+      expect(derived.wire.state.outcome_definition.flat_band_percent).toBe(
+        flatBandPercent,
+      );
+      expect(derived.requestHash).toBe(explicit.requestHash);
+    },
+  );
+
+  it.each([
+    ["position", 1, undefined],
+    ["position", 5, undefined],
+    ["sprint", 20, undefined],
+    ["sprint", 2, undefined],
+    ["position", 20, 1.5],
+    ["sprint", 1, 1.5],
+    ["sprint", 5, 0.5],
+  ] as const)(
+    "rejects unsupported %s %i-session geometry with override %s",
+    (strategyMode, horizonSessions, flatBandPercent) => {
+      expect(() =>
+        buildJudgmentRequest({
+          marketState: compactState(),
+          strategyMode,
+          horizonSessions,
+          ...(flatBandPercent === undefined ? {} : { flatBandPercent }),
+          evaluationMode: "sandbox",
+        }),
+      ).toThrowError(expect.objectContaining({ code: "INVALID_REQUEST" }));
+    },
+  );
 });
 
 describe("FixtureJevProvider", () => {

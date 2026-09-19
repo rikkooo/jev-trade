@@ -108,6 +108,16 @@ function cloneFeatures(features: MarketFeatures): MarketFeatures {
   };
 }
 
+function expectedFlatBandPercent(
+  strategyMode: BuildJudgmentRequestInput["strategyMode"],
+  horizonSessions: number,
+): number | undefined {
+  if (strategyMode === "position" && horizonSessions === 20) return 2;
+  if (strategyMode === "sprint" && horizonSessions === 1) return 0.5;
+  if (strategyMode === "sprint" && horizonSessions === 5) return 1.5;
+  return undefined;
+}
+
 function approvedState(
   input: BuildJudgmentRequestInput,
 ): ApprovedJudgmentState {
@@ -174,12 +184,12 @@ export function buildJudgmentRequest(
   ) {
     throw new JudgmentProviderError("INVALID_REQUEST", false);
   }
-  const flatBandPercent = input.flatBandPercent ?? 2;
-  if (
-    !Number.isFinite(flatBandPercent) ||
-    flatBandPercent < 0 ||
-    flatBandPercent > 100
-  ) {
+  const expectedFlatBand = expectedFlatBandPercent(
+    input.strategyMode,
+    input.horizonSessions,
+  );
+  const flatBandPercent = input.flatBandPercent ?? expectedFlatBand;
+  if (expectedFlatBand === undefined || flatBandPercent !== expectedFlatBand) {
     throw new JudgmentProviderError("INVALID_REQUEST", false);
   }
   const model = input.requestedModel ?? REQUESTED_JEV_MODEL;
