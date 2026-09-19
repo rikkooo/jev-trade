@@ -14,6 +14,8 @@ interface RemoteFixtureOptions {
   readonly revision?: string;
   readonly hsts?: boolean;
   readonly canonical?: string;
+  readonly canonicalTrailingSlash?: boolean;
+  readonly unrelatedCanonicalHref?: string;
 }
 
 function remoteFixtureFetch({
@@ -21,6 +23,8 @@ function remoteFixtureFetch({
   revision = REVISION.slice(0, 12),
   hsts = true,
   canonical = CANONICAL,
+  canonicalTrailingSlash = true,
+  unrelatedCanonicalHref,
 }: RemoteFixtureOptions = {}) {
   return async (
     input: string | URL | Request,
@@ -33,7 +37,7 @@ function remoteFixtureFetch({
     const method = init?.method ?? "GET";
     if (path === "/") {
       return new Response(
-        `Synthetic fixture release <link rel="canonical" href="${canonical}/">`,
+        `Synthetic fixture release <link rel="canonical" href="${canonical}${canonicalTrailingSlash ? "/" : ""}">${unrelatedCanonicalHref ? `<a href="${unrelatedCanonicalHref}">home</a>` : ""}`,
         {
           status: 200,
           headers: {
@@ -146,6 +150,28 @@ describe("deployment verifier", () => {
         "canonical-metadata",
       ]),
     );
+  });
+
+  it("accepts an equivalent root canonical without a trailing slash", async () => {
+    const receipt = await verifyDeployment(
+      remoteOptions(),
+      remoteFixtureFetch({ canonicalTrailingSlash: false }),
+    );
+
+    expect(receipt.checks).toContain("canonical-metadata");
+  });
+
+  it("rejects slashless canonical drift even when another link uses the expected origin", async () => {
+    await expect(
+      verifyDeployment(
+        remoteOptions(),
+        remoteFixtureFetch({
+          canonical: "https://wrong.example",
+          canonicalTrailingSlash: false,
+          unrelatedCanonicalHref: CANONICAL,
+        }),
+      ),
+    ).rejects.toThrow("canonical origin");
   });
 
   it("does not claim remote-only evidence for a local artifact", async () => {
