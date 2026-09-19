@@ -110,6 +110,29 @@ function assertNoHiddenCall(body: string, label: string): void {
   }
 }
 
+function htmlAttribute(tag: string, name: "href" | "rel"): string | null {
+  const match = new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i").exec(tag);
+  return match?.[2] ?? null;
+}
+
+function hasCanonicalRoot(body: string, canonicalOrigin: URL): boolean {
+  const canonicalLinks = [...body.matchAll(/<link\b[^>]*>/gi)].filter((match) =>
+    (htmlAttribute(match[0], "rel") ?? "")
+      .split(/\s+/)
+      .some((value) => value.toLowerCase() === "canonical"),
+  );
+  if (canonicalLinks.length !== 1) return false;
+
+  const href = htmlAttribute(canonicalLinks[0]?.[0] ?? "", "href");
+  if (!href) return false;
+
+  try {
+    return new URL(href).href === new URL("/", canonicalOrigin).href;
+  } catch {
+    return false;
+  }
+}
+
 async function assertDisabledWrite(
   origin: URL,
   path: string,
@@ -264,7 +287,7 @@ export async function verifyDeployment(
   if (canonicalOrigin !== null) {
     const canonical = canonicalOrigin.origin;
     invariant(
-      homeText.includes(`href="${canonical}/"`),
+      hasCanonicalRoot(homeText, canonicalOrigin),
       "Home canonical metadata does not match the configured canonical origin.",
     );
     const robots = await response(origin, "/robots.txt", fetcher);
