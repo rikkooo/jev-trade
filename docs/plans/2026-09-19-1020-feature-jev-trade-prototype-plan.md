@@ -6,7 +6,7 @@ artifact_contract: ce-unified-plan/v1
 product_contract_source: ce-plan-bootstrap
 execution: code
 repository: https://github.com/rikkooo/jev-trade
-deployment_target: western Linux host
+deployment_target: Vercel project jev-trade; HQ box for build and validation
 ---
 
 # Jev Trade prototype plan
@@ -15,7 +15,7 @@ deployment_target: western Linux host
 
 **Objective:** Publish a trustworthy market simulation in which anyone can inspect Jev's timestamped stock judgments, follow a shared paper portfolio, and see whether those judgments outperform simple baselines as real outcomes arrive.
 
-**Means:** Build a box-hosted modular Next.js application with a deterministic feature and risk engine, typed Jev evaluations, an append-only decision ledger, a paper-trading policy, and a public scorecard (KTD1–KTD9).
+**Means:** Build a Vercel-hosted modular Next.js application with a deterministic feature and risk engine, typed Jev evaluations, an append-only decision ledger, a paper-trading policy, and a public scorecard (KTD1–KTD9). Use the HQ box for canonical builds, tests, container validation, and recovery rehearsals.
 
 **Authority:** This plan governs prototype scope and implementation. The user's latest direction governs hosting and domain ownership. Provider contracts govern data display and retention. Official TypeSafe documentation governs Jev's API behavior. When these conflict, legal data rights and simulation safety are hard constraints.
 
@@ -28,7 +28,7 @@ deployment_target: western Linux host
 - Do not copy code, visual assets, or text from the unlicensed finance demos reviewed in the Appendix.
 - Do not redirect or alter `jev-trade.com`; the project owner handles domains and the final host.
 
-**Execution profile:** Deep, financial-domain prototype. Work in dependency order, keep deployable increments, and finish with a box deployment plus a rollback rehearsal. One implementation owner may build the modular monolith; an independent reviewer validates the decision ledger, leakage controls, disclosure language, and deployment evidence before promotion.
+**Execution profile:** Deep, financial-domain prototype. Work in dependency order, keep deployable increments, and finish with a Vercel deployment plus a rollback rehearsal. The HQ box remains the trusted validation environment. One implementation owner may build the modular monolith; an independent reviewer validates the decision ledger, leakage controls, disclosure language, and deployment evidence before promotion.
 
 ## Product Contract
 
@@ -190,7 +190,7 @@ The prototype must answer four questions:
 - The public scorecard always includes the three named baselines, sample size, and calibration metrics when it shows Jev results.
 - Mobile pages remain usable at 400 CSS pixels and the primary stock view reaches WCAG 2.2 AA for keyboard navigation, landmarks, labels, focus, and contrast.
 - If the YouTube launch and public release produce at least 500 consented eligible stock-detail sessions, at least 15% complete a blind pick and at least 10% of pickers return within seven days. Below 500 sessions the result is `NOT ENOUGH TRAFFIC`, not a failed engagement test; misses above that denominator trigger a product review rather than blocking forecast evidence.
-- The box can be rebuilt from a clean checkout and environment file, restored from a backup, health-checked, and rolled back using the documented runbook.
+- The Vercel project can be rebuilt from a clean checkout, health-checked, and rolled back using the documented runbook; the portable HQ-box stack can restore and verify durable data.
 - Product validation for a full app requires at least 100 resolved prospective forecasts across at least 20 symbols, at least 20 distinct resolution dates overall, and no fewer than 20 forecasts per active horizon. The scorecard states that same-session symbols and overlapping Position windows are correlated; this is a learning threshold, not a claim of statistical significance.
 
 ### Scope Boundaries
@@ -204,7 +204,7 @@ The prototype must answer four questions:
 - Public ledger, stock detail, methodology, scorecard, and shareable forecast/outcome cards.
 - No-account blind picks and privacy-minimized aggregate engagement measurement.
 - Operator controls needed to manage symbols, jobs, corrections, and version labels.
-- Box-first container deployment with Vercel compatibility.
+- Vercel-first fixture deployment, with Neon for durable state when provisioned and a portable HQ-box container stack for validation and recovery.
 
 #### Deferred for later
 
@@ -226,11 +226,12 @@ The prototype must answer four questions:
 
 | Dependency | Needed for implementation | Needed for public launch | Resolution |
 |---|---:|---:|---|
-| TypeSafe API key or compatible Jev provider | Yes for live evaluation; fixtures unblock development | Yes | Obtain key, pin a tested model version, record terms and limits |
+| OpenRouter API key for Jev | Yes for live evaluation; fixtures unblock development | Yes | Supplied; validate the dedicated Decisions route, pin the returned model version, and record terms and limits |
 | Market-data development key | Yes for live ingestion; fixtures unblock development | Yes | Use only within the provider's permitted development/internal scope |
 | Public display/storage rights | No | Yes, blocking | Obtain written rights record for the selected provider and fields |
-| Western Linux box | No for local build | Yes | Docker 24+, Compose v2, 2 vCPU, 4 GB RAM, 30 GB SSD minimum |
-| Domain and DNS | No | No for IP/temporary host testing | Project owner handles the final domain separately |
+| Vercel project | No for local build | Yes | Project `jev-trade` exists; authenticate the CLI, link it, and deploy the reviewed branch |
+| Durable Postgres | No for the read-only fixture release | Yes for prospective records | Provision Neon through Vercel before enabling durable writes |
+| Domain and DNS | No | No for the generated Vercel URL | `jev-trade.dev` is attached by the project owner; the project owner controls final DNS |
 | Legal/compliance review | No for private prototype | Yes before promotion | Review simulation copy, methodology, YouTube claims, privacy, and provider terms |
 | YouTube traffic window | No | Needed only to evaluate engagement target | Publish after public gates pass; measure the first 500 consented eligible sessions |
 
@@ -239,8 +240,8 @@ Before U3 adds a live provider, the operator sends written terms requests and qu
 ### Outstanding Questions
 
 - **Launch-blocking:** Which market-data contract permits the final public fields, history, storage, charts, and derived scorecard? The adapter can be built before selection, but public display stays disabled until this is recorded.
-- **Configuration, not scope:** Whether the first live Jev transport is TypeSafe direct or Vercel AI Gateway depends on credential availability. Both implement the same internal adapter; direct TypeSafe is the preferred box-first route.
-- **Deferred decision:** The permanent domain route and final production host are owned by the project owner and do not block the temporary box deployment.
+- **Settled configuration:** The first live Jev transport is OpenRouter's dedicated `/api/alpha/decisions` endpoint. Vercel AI Gateway remains an optional, separately credentialed future adapter and is never a silent fallback.
+- **Settled deployment:** Vercel project `jev-trade` is the prototype host, `jev-trade.dev` is the intended domain, and the project owner controls DNS. The generated Vercel URL is sufficient for deployment validation.
 
 ### Sources
 
@@ -258,7 +259,7 @@ Before U3 adds a live provider, the operator sends written terms requests and qu
 
 ### Key Technical Decisions
 
-**KTD1 — Deploy to our box first with a portable container stack.** *(session-settled: user-directed — chosen over Vercel-first: the user wants the prototype on the western box and will handle the final box and domain.)* Use one Node.js 22 image for the Next.js web command and worker command, Postgres 16 for durable state, and Caddy for TLS/reverse proxy. Keep the web process compatible with Vercel's Node runtime, but do not require Vercel services.
+**KTD1 — Deploy the prototype to Vercel and validate it on the HQ box.** *(session-settled: user-directed; supersedes the original box-first choice.)* Use Vercel's Node.js 22 runtime for the public Next.js app and authenticated cron routes. Start with committed synthetic fixtures and disabled durable writes. Provision Neon before prospective records are enabled. Retain the Node.js 22 image, Postgres 16, and Caddy definitions for HQ-box validation and recovery.
 
 **KTD2 — Use a modular monolith.** Keep web pages, HTTP routes, domain services, adapters, and scheduled jobs in one TypeScript workspace. Isolate modules through imports and contracts rather than separate network services. This is the fastest shape that still supports extracting ingestion or evaluation later.
 
@@ -270,17 +271,17 @@ Before U3 adds a live provider, the operator sends written terms requests and qu
 
 **KTD6 — Pin and version the full judgment contract.** Pin a concrete Jev model after a live smoke test, store the returned model identifier, and version the compact-state schema, questions, policy, risk formula, outcome labels, and execution assumptions independently. A moving alias is allowed only in a non-scored sandbox.
 
-**KTD7 — Run EOD jobs from a database-backed worker.** A long-running worker polls a Postgres job table, claims work with row locks, retries transient failures with bounded backoff, and records idempotency keys. This avoids a new queue dependency on a single host and moves cleanly to managed cron later.
+**KTD7 — Run EOD jobs through database-backed Vercel Cron routes.** Authenticated, bounded cron invocations claim work from Postgres with row locks, retry transient failures through appended attempts, and record idempotency keys. Each invocation must finish safely within the configured function duration; portable worker commands remain available for HQ-box recovery.
 
-**KTD8 — Ship a mostly read-only public surface and an isolated operator surface.** Public mutations are limited to strict blind-pick and consented analytics schemas backed by execute-only database procedures. Internal job, symbol, version, gate, and correction routes live on a loopback-only operator service reached through an SSH tunnel. There are no public accounts in v1.
+**KTD8 — Ship a mostly read-only public surface and a protected operator surface.** Public mutations are limited to strict blind-pick and consented analytics schemas backed by execute-only database procedures. Internal job, symbol, version, gate, and correction routes require server-side operator or cron authentication and are never linked from the public app. There are no public accounts in v1.
 
-**KTD9 — Gate promotion separately from deployment.** A box deployment can run with fixtures or internal-use data behind access controls. A public/promoted state requires the provider-rights record, production secrets, rate limits, disclosures, backup/restore evidence, and independent review.
+**KTD9 — Gate promotion separately from deployment.** A public Vercel deployment can run as a clearly labeled, read-only synthetic fixture demonstration. Live market display, prospective scoring, and promotion require the provider-rights record, durable database, production secrets, rate limits, disclosures, backup/restore evidence, and independent review.
 
 ### Alternatives Considered
 
 | Choice | Decision | Reason |
 |---|---|---|
-| Vercel hosting first | Keep as fallback | Fast deploys are attractive, but the user selected a western box first and the app does not need Vercel-specific infrastructure |
+| Western-box public hosting first | Keep for recovery/final-host portability | The project owner selected Vercel for the prototype and the HQ box for build and validation |
 | Microservices | Reject for prototype | Extra deploy, tracing, and failure surfaces do not improve the first experiment |
 | Let Jev output `BUY/SELL` and risk percent | Reject | It conflates judgment with arithmetic and creates a misleading probability claim |
 | Full user paper-trading accounts | Defer | Auth and multitenancy do not answer whether Jev adds value |
@@ -297,14 +298,14 @@ The diagrams communicate responsibility and flow. Exact module boundaries may ch
 
 ```mermaid
 flowchart LR
-    V[Visitor browser] --> C[Caddy]
-    O[Operator] --> SSH[SSH tunnel]
-    SSH --> OPS[Loopback-only operator service]
-    C --> W[Next.js web]
+    V[Visitor browser] --> E[Vercel edge]
+    O[Operator] --> OPS[Protected operator routes]
+    E --> W[Next.js web/functions]
     W -->|projection-read and limited-ingest roles| D[(Postgres)]
     OPS -->|operations DB role| D
     W --> M[MarketDataProvider]
-    J[Worker] -->|append-limited DB role| D
+    C[Vercel Cron] --> J[Bounded job route]
+    J -->|append-limited DB role| D
     J --> M
     J --> T[JevProvider]
     W --> S[Public pages and JSON]
@@ -476,7 +477,8 @@ jev-trade/
 │   ├── scorecard/             # baselines, calibration, performance metrics
 │   └── operations/            # jobs, operator authorization, health
 ├── db/                        # schema, migrations, seeds
-├── worker/                    # scheduled job entrypoint
+├── app/api/internal/cron/     # authenticated bounded job entrypoints
+├── scripts/                   # local operations and HQ recovery commands
 ├── tests/                     # integration, fixtures, leakage and invariants
 ├── e2e/                       # Playwright public/operator flows
 ├── deploy/                    # Docker, Compose, Caddy, backup and rollback scripts
@@ -499,7 +501,7 @@ Public routes return projections and never provider-native payloads:
 - `POST /api/v1/picks`
 - `POST /api/v1/analytics/events`
 
-Operator routes run in a separate service bound to loopback. They are reached only through an SSH tunnel, use short-lived HttpOnly `Secure` `SameSite=Strict` sessions after a bootstrap login, and are never routed by public Caddy:
+Operator routes are server-side Vercel Functions protected by explicit operator authentication. They use short-lived HttpOnly `Secure` `SameSite=Strict` sessions after a bootstrap login and are never linked from public navigation:
 
 - `POST /api/internal/symbols`
 - `POST /api/internal/jobs/evaluate`
@@ -519,7 +521,7 @@ All operator mutation routes require idempotency keys and origin checks. The roo
 4. **Portfolio:** cash, exposure, open/closed paper positions, equity curve, drawdown, and event ledger.
 5. **Scorecard:** prospective filter by mode/horizon/model/policy, calibration chart, baselines, coverage, P&L, drawdown, and sample warnings. A visually separate `Visitor game` section labels its aggregate as an uncontrolled, unauthenticated engagement sample outside the attested Jev record.
 6. **Methodology:** data timing, formulas, labels, execution assumptions, Jev limitations, correction policy, disclosures, and provider attribution.
-7. **Operator:** minimal loopback-only status page, reached through an SSH tunnel, for universe, queues, failed jobs, versions, public-mode gate, and corrections.
+7. **Operator:** minimal protected status page for universe, queues, failed jobs, versions, public-mode gate, and corrections.
 
 Use TradingView Lightweight Charts only after preserving its required attribution. The semantic HTML table remains the accessible equivalent of chart-only data. Every async panel has loading, empty, stale, partial, failed, and success states.
 
@@ -569,29 +571,29 @@ Status changes use text, icon, and color together. Dynamic status regions use re
 ### Security, Privacy, and Abuse Controls
 
 - Keep every provider and operator secret server-side; redact known secret fields and authorization headers before logging.
-- Supply market-data, Jev, GitHub-dispatch, and operator secrets through root-owned host environment files mounted only into the process that needs each value. Never bake them into images or commits. The incident runbook names owner, rotation, revocation, and cost/contract checks for each credential.
+- Supply market-data, Jev, database, GitHub-dispatch, cron, and operator secrets through Vercel's sensitive environment store; use mode-600 ignored files on the HQ box. Never bake them into images, commits, client bundles, or build logs. The incident runbook names owner, rotation, revocation, and cost/contract checks for each credential.
 - Give public web, public ingest, worker, operator, backup, and migration work separate Postgres roles. Public web reads projections only; public ingest executes only bounded pick/event procedures; the worker appends within domain procedures; operator mutations are narrow; only the one-shot migration role owns schema changes.
 - Validate symbols against the allowlist and never turn visitor input into arbitrary provider URLs.
 - Do not persist or send raw provider HTML, news, filings, or snippets in v1. Adapters may emit permitted structured facts, derived descriptors, source IDs, and content hashes only.
-- Place a hard daily and per-run budget on provider and Jev calls. Enforce public endpoint rate limits at the application layer for the single-host prototype.
-- Apply Content Security Policy, secure cookies, safe cache headers, and HSTS on a stable hostname. Require trusted HTTPS for every externally reachable route; when no certificate-backed hostname exists, bind all services to loopback and use an SSH tunnel.
+- Place a hard daily and per-run budget on provider and Jev calls. Enforce public endpoint rate limits through application controls suitable for stateless functions and durable database constraints.
+- Apply Content Security Policy, secure cookies, safe cache headers, and HSTS on the Vercel hostname and attached domain. Require trusted HTTPS for every externally reachable route.
 - Store no visitor financial profile or personal portfolio in v1. Retain coarse request telemetry with keyed IP minimization for at most 14 days; analytics consent and retention follow R35 separately.
 - The operator session expires after 15 minutes idle and one hour absolute. Bootstrap login permits five failures per 15-minute window, applies exponential delay, records an alert, and supports immediate session revocation.
-- Place web and operator on separate Compose networks; each can reach Postgres through its own network, while no container route exists from web to operator. Publish the operator port on host loopback only.
-- Encrypt backups to an age public key on the box; keep the corresponding decryption private key off-host. Keep off-host destination credentials root-readable and outside application containers.
+- Give public and operator routes separate database credentials and authorization checks. The fixture deployment sets `DURABLE_WRITES=false`, so no public mutation can reach the ledger before Neon and the execute-only roles are provisioned.
+- Encrypt database exports to an age public key before off-platform storage; keep the corresponding decryption private key outside Vercel and the application repository.
 - Label visitor-pick aggregates as unauthenticated engagement signals, separate from the prospective Jev evidence record. Cap pick submissions per minimized IP, browser token, and forecast.
 - Generate a software bill of materials and run dependency and container scans before promotion.
 
 ### Operations and Deployment
 
-- Build a multi-stage Docker image as a non-root user. Run `web`, `worker`, and loopback-only `operator` as separate Compose services from that image.
-- Keep Postgres on a private Compose network with a named volume; expose only Caddy's HTTP/HTTPS ports.
-- Configure Caddy through an environment-provided certificate-backed hostname. Before a hostname is available, keep the stack private and access it through SSH port forwarding. Do not hardcode `jev.conectta.co` or `jev-trade.com`.
-- Run migrations as an explicit one-shot release command before starting the new web/worker version.
+- Build and validate the production Next.js bundle on the HQ box, then deploy the reviewed Git revision to Vercel. Keep the non-root multi-stage Docker image and Compose stack as a recovery and database-validation target.
+- Use Neon Postgres with TLS and least-privilege roles when durable writes are enabled. The first public fixture build has no database dependency.
+- Use the Vercel-generated hostname for smoke tests and the project-owner-managed `jev-trade.dev` domain when DNS is ready. Do not hardcode `jev.conectta.co`, `jev-trade.dev`, or `jev-trade.com` in application behavior.
+- Run migrations as an explicit, one-shot release step before deploying any revision that enables durable writes.
 - Use structured JSON logs with request/job/forecast IDs and no raw licensed payloads or secrets.
 - Back up Postgres daily, encrypt off-host, keep seven daily and four weekly copies, and perform one restore rehearsal before public promotion.
-- Health readiness checks database reachability, applied migration version, and worker heartbeat; it does not make a paid Jev or data call.
-- Roll back the web and worker image together. Database migrations must be expand/contract compatible for one prior image version.
+- Health readiness checks the capabilities required by the active mode. In fixture mode it requires no external database or paid call; in durable mode it checks database reachability, applied migration version, and the latest cron receipt.
+- Roll back the Vercel deployment to the prior known-good revision. Database migrations must be expand/contract compatible for one prior application version.
 - Development mode defaults to fixtures. `PUBLIC_MARKET_DATA=false` prevents market fields and charts from being served until the rights record is active.
 - Each completed publication batch closes a new hash-chain root with a deadline before the next eligible market session opens. A root-owned host timer, isolated from application containers, sends that minimal root through a fine-grained GitHub `repository_dispatch`; its token cannot read private application data or modify releases. GitHub Actions verifies the previous published link, creates a Sigstore-backed artifact attestation through OIDC, and publishes the root JSON outside the application database. The worker polls GitHub outbound for the receipt, so no inbound attestation-write route exists and the control works before a public hostname is attached. Forecasts whose receipt misses the deadline remain visible as `EXTERNALLY_UNVERIFIED` and are permanently excluded from the prospective scorecard; there is no late-admission grace window. Any miss pages the operator, and more than 2% missed roots in a rolling 30-day window fails the promotion reliability gate. The public verification command checks the chain, receipt, and deadline. This proves publication time and detects later rewriting; it cannot prove a pre-deadline root was correct.
 
@@ -612,7 +614,7 @@ flowchart LR
     U8 --> U9[U9 Harden and deploy]
 ```
 
-The evidence path is U1 → U2 and U3 in parallel → U4 → U5 → U6, so the prospective clock starts as soon as a permitted live feed is available. U7 can build a fixture-only visual demo in parallel after U5, but it must not delay U6; U8 and U9 then add public proof and the box deployment.
+The evidence path is U1 → U2 and U3 in parallel → U4 → U5 → U6, so the prospective clock starts as soon as a permitted live feed is available. U7 can build a fixture-only visual demo in parallel after U5, but it must not delay U6; U8 and U9 then add public proof and the Vercel deployment.
 
 ### Fast Prototype Schedule
 
@@ -620,13 +622,13 @@ This is an execution target for one focused implementation stream, not a promise
 
 | Working window | Target | Exit evidence |
 |---|---|---|
-| Day 0, parallel | Send provider-rights requests; obtain Jev credential; confirm box prerequisites | Written requests/quotes logged; no spend assumed |
+| Day 0, parallel | Send provider-rights requests; obtain Jev credential; confirm Vercel project and HQ validation prerequisites | Written requests/quotes logged; no spend assumed |
 | Day 1 | U1 foundation and U2 ledger skeleton | Compose health, migrations, event replay, DB-role tests |
 | Day 2 | U3 fixture and live-adapter boundary | Golden features, risk vectors, no-future-data proof |
 | Day 3 | U4 Jev integration and U5 policy/portfolio | Typed live smoke, repeatability cohort, action/sizing fixtures |
 | Day 4 | Start U6 first; build U7 public/operator experience in parallel | Prospective clock running when permitted, accelerated EOD loop, critical browser journeys |
 | Day 5 | U8 scorecard, baselines, blind-pick result, external roots | Golden metrics and attestation verification |
-| Day 6 | U9 hardening and western-box deployment | Restore, rollback, security scan, fixture soak started |
+| Day 6 | U9 hardening and Vercel deployment | Preview/production receipts, restore, rollback, security scan, fixture soak started |
 | Following 48 hours | Restricted live-data soak if contract permits | Job completeness, no duplicate decisions, bounded cost |
 | Following 30 days | Prospective operating evidence before promotion claim | Reliability, scorecard integrity, comprehension, and engagement review |
 
@@ -634,22 +636,22 @@ If market-data rights lag, the fixture/private build and Jev repeatability work 
 
 ## Implementation Units
 
-### U1. Application and box foundation
+### U1. Application and deployment foundation
 
-**Goal:** Establish a reproducible Node.js 22 workspace and container stack that serves a health page locally and on the target Linux host.
+**Goal:** Establish a reproducible Node.js 22 workspace that builds for Vercel and serves the same health page through the portable HQ-box container stack.
 
 **Requirements:** R28, R32. **Dependencies:** None. **Decisions:** KTD1, KTD2, KTD9.
 
 **Files:** `package.json`, `pnpm-lock.yaml`, `next.config.ts`, `tsconfig.json`, `app/`, `deploy/Dockerfile`, `deploy/compose.yaml`, `deploy/Caddyfile`, `.env.example`, CI workflow.
 
-**Approach:** Create the Next.js TypeScript shell, design tokens, error boundaries, structured logger, configuration schema, web/worker/operator commands, Postgres service and least-privilege roles, health checks, and CI gates. Bind the operator service to loopback, make fixtures the safe default, and require an explicit public-data flag.
+**Approach:** Create the Next.js TypeScript shell, design tokens, error boundaries, structured logger, capability-based configuration schema, health checks, Vercel configuration, portable Postgres/container definitions, and CI gates. Make fixtures the safe default and require explicit flags for public market data and durable writes.
 
 **Test scenarios:**
 
 - A clean checkout with documented environment values installs, migrates, builds, and serves `/health/live` through Compose.
 - Missing required production secrets fails startup with field names but never values.
 - Fixture mode starts without network credentials, while live provider mode rejects missing provider configuration.
-- SIGTERM stops idle web, worker, and operator processes cleanly.
+- The portable Node process handles SIGTERM cleanly, while Vercel routes keep bounded work within function limits.
 - The public database role cannot append or mutate domain records; the worker cannot change schema; the operator cannot assume migration ownership.
 
 **Verification:** `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, and `docker compose -f deploy/compose.yaml config` pass.
@@ -700,9 +702,9 @@ If market-data rights lag, the fixture/private build and Jev repeatability work 
 
 **Requirements:** R8, R9, R18, R27–R29. **Dependencies:** U3. **Decisions:** KTD4–KTD6.
 
-**Files:** `modules/judgment/contracts.ts`, `modules/judgment/questions/`, `modules/judgment/providers/typesafe.ts`, optional gateway adapter, sanitizer, validators, fixtures and contract tests.
+**Files:** `modules/judgment/contracts.ts`, `modules/judgment/questions/`, `modules/judgment/providers/openrouter.ts`, optional gateway adapter, sanitizer, validators, fixtures and contract tests.
 
-**Approach:** Implement the four-question contract, direct TypeSafe transport, canonical request construction, timeout/retry policy for transient statuses, strict response validation, response-model capture, safe evidence boundaries, and a deterministic fixture adapter. Add gateway transport only when credentials favor it.
+**Approach:** Implement the four-question contract, direct OpenRouter Decisions transport for `typesafe/jev-1.13`, canonical request construction, timeout/retry policy for transient statuses, strict response validation, response-model capture, safe evidence boundaries, and a deterministic fixture adapter. Keep any future Gateway transport explicit and separately credentialed.
 
 **Test scenarios:**
 
@@ -742,20 +744,20 @@ If market-data rights lag, the fixture/private build and Jev repeatability work 
 
 **Requirements:** R4, R20, R21, R24, R25, R31. **Dependencies:** U2, U3, U4, U5. **Decisions:** KTD3, KTD7.
 
-**Files:** `worker/`, `modules/operations/jobs/`, worker commands, integration fixtures, clock/calendar tests.
+**Files:** `app/api/internal/cron/`, `modules/operations/jobs/`, recovery commands under `scripts/`, integration fixtures, clock/calendar tests.
 
 **Approach:** Implement job enqueue/claim/lease/heartbeat, per-symbol idempotency, bounded retries, dead-letter state, EOD availability windows, open-position checks, outcome jobs, correction-triggered recomputation, and operator replays. Use an injectable clock.
 
 **Test scenarios:**
 
-- Two workers racing for the same symbol/cutoff publish one forecast.
-- A worker crash releases the job after its lease without duplicating its committed event.
-- SIGTERM during a claimed job stops new claims, completes or releases the active lease within the shutdown deadline, and permits safe reclaim.
+- Two cron invocations racing for the same symbol/cutoff publish one forecast.
+- A terminated function releases the job after its lease without duplicating its committed event.
+- A bounded invocation nearing its deadline stops new claims, completes or releases the active lease, and permits safe reclaim.
 - Weekends, exchange holidays, half days, delayed provider bars, and horizon boundaries resolve on the correct sessions.
 - A post-publication halt or delisting resolves from documented consideration/last-value rules and remains in sensitivity metrics rather than disappearing as an easy void.
 - Jev outage leaves deterministic stops active and creates visible failed jobs rather than fabricated judgments.
 
-**Verification:** Multi-worker integration test, fault-injection suite, 30-day accelerated clock simulation, and duplicate-publication query pass.
+**Verification:** Concurrent-invocation integration test, fault-injection suite, 30-day accelerated clock simulation, and duplicate-publication query pass.
 
 ### U7. Public application and operator surface
 
@@ -765,7 +767,7 @@ If market-data rights lag, the fixture/private build and Jev repeatability work 
 
 **Files:** `app/`, `components/`, API routes, view-model modules, public fixtures, Playwright tests.
 
-**Approach:** Build server-rendered public pages, accessible tables/charts, methodology tooltips, stable error states, immutable forecast URLs, blind visitor picks, privacy-minimized analytics, forecast share-card rendering, and loopback-only operator controls. Cache only read projections and include freshness/version labels.
+**Approach:** Build server-rendered public pages, accessible tables/charts, methodology tooltips, stable error states, immutable forecast URLs, blind visitor picks, privacy-minimized analytics, forecast share-card rendering, and authenticated operator controls. Cache only read projections and include freshness/version labels.
 
 **Test scenarios:**
 
@@ -801,27 +803,27 @@ If market-data rights lag, the fixture/private build and Jev repeatability work 
 
 **Verification:** Golden metric vectors, projection rebuild equality, publication-batch hash-chain reconstruction, GitHub artifact-attestation verification, and scorecard browser checks pass.
 
-### U9. Production hardening and box deployment
+### U9. Production hardening and Vercel deployment
 
-**Goal:** Put the complete prototype on the western box with recoverable data, bounded spend, secure secrets, and promotion gates.
+**Goal:** Put the complete fixture prototype on Vercel with bounded spend, secure secrets, rollback evidence, and promotion gates; retain the HQ-box recovery path.
 
 **Requirements:** R28–R35. **Dependencies:** U1–U8. **Decisions:** KTD1, KTD8, KTD9.
 
 **Files:** `deploy/`, `.github/workflows/`, operations docs, security headers, budgets, backup/restore and smoke scripts.
 
-**Approach:** Pin images and dependencies, configure Caddy and firewalls, set resource/call budgets, deploy by immutable image tag, migrate explicitly, seed the allowlist, run private soak, restore a backup, rehearse rollback, and enable public data only after all launch gates are recorded.
+**Approach:** Pin dependencies, configure Vercel security and cron controls, set resource/call budgets, deploy an immutable Git revision, migrate Neon explicitly when provisioned, seed the allowlist, run a fixture soak, restore a backup on the HQ validation stack, rehearse Vercel rollback, and enable live public data only after all launch gates are recorded.
 
 **Test scenarios:**
 
-- A clean box deploy succeeds from documented prerequisites and a redacted environment template.
+- A clean Vercel deploy succeeds from the reviewed Git revision and a redacted environment template.
 - Lost database volume restores from the latest backup and ledger hashes/projections verify.
 - Bad image health triggers rollback to the prior image without an incompatible schema failure.
-- Provider/Jev budget exhaustion, loss of network, full disk warning, and stale worker heartbeat alert and fail safely.
+- Provider/Jev budget exhaustion, loss of network, function-capacity exhaustion, and a missing cron receipt alert and fail safely.
 - Any publication root approaching or missing its pre-session attestation deadline alerts the operator; the 30-day missed-root query enforces the 2% promotion ceiling.
-- The root publisher can dispatch and receive a valid external receipt while every application service remains private behind SSH; application containers cannot read its GitHub token.
+- The root publisher can dispatch and receive a valid external receipt while Vercel Functions cannot read its GitHub token.
 - Public mode cannot enable without the rights record and required disclosure version.
 
-**Verification:** Staging deployment receipt, dependency/container scans, backup restore receipt, rollback receipt, 24-hour fixture soak, and 48-hour restricted live-data soak pass. The separate promotion gate retains the 30-day operational target.
+**Verification:** Preview and production deployment receipts, dependency/container scans, backup restore receipt, rollback receipt, 24-hour fixture soak, and 48-hour restricted live-data soak pass. The separate promotion gate retains the 30-day operational target.
 
 ## Verification Contract
 
@@ -860,7 +862,7 @@ docker build -f deploy/Dockerfile .
 
 1. **Fixture release:** all automated gates pass; no external credentials required.
 2. **Private live-data release:** provider/model credentials work; live smoke and cost cap pass; access is restricted within contract terms.
-3. **Public box release:** provider rights, disclosure review, rate limits, security scans, backup restore, and rollback evidence pass.
+3. **Public live-data release:** provider rights, disclosure review, rate limits, security scans, backup restore, and rollback evidence pass before the fixture label or live-data gate changes.
 4. **Promotion release:** 30-day soak completes; the 4-of-5 moderated comprehension evidence is recorded; scorecard and sample warnings are correct; independent review signs off on leakage, claims, and reproducibility.
 
 ### Independent review focus
@@ -872,7 +874,7 @@ The reviewer reconstructs at least three forecasts from source references, check
 ### Prototype implementation
 
 - U1–U9 meet their unit goals and verification checks.
-- The full app runs from a clean checkout in fixture mode and on the western box in the allowed live-data mode.
+- The full app runs from a clean checkout in fixture mode, deploys to Vercel, and remains portable to the HQ-box recovery stack.
 - A visitor can complete all public flows, and the operator can recover or correct failures without database editing.
 - The judgment, market-risk, and position-risk concepts remain visibly and semantically separate.
 - At least one full fixture cohort publishes, fills, monitors, resolves, and scores across both modes.
