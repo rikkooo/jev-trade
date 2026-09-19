@@ -15,6 +15,15 @@ export interface PublicModeRequirements {
   readonly requiredFields: readonly string[];
 }
 
+export const PUBLIC_JEV_PROCESSOR = "openrouter-jev" as const;
+export const PUBLIC_JUDGMENT_TRANSPORT = "openrouter" as const;
+export const PUBLIC_MARKET_FIELDS = [
+  "daily_ohlcv",
+  "corporate_actions",
+  "exchange_calendar",
+  "structured_events",
+] as const;
+
 function isEffective(
   record: { readonly effectiveFrom: string; readonly effectiveTo?: string },
   at: string,
@@ -92,4 +101,27 @@ export function evaluatePublicModeGate(input: {
     blockers.push("PROCESSOR_TERMS_MISSING");
   }
   return { allowed: blockers.length === 0, blockers };
+}
+
+/** Public forecast reads derive the market provider from the stored snapshot. */
+export function evaluatePublicForecastRead(input: {
+  readonly at: string;
+  readonly snapshotProvider: string;
+  readonly judgmentProvider: string;
+  readonly providerRights: readonly ProviderRights[];
+  readonly processorTerms: readonly ProcessorTerms[];
+}): PublicModeGateResult {
+  if (input.judgmentProvider !== PUBLIC_JUDGMENT_TRANSPORT) {
+    return { allowed: false, blockers: ["PROCESSOR_TERMS_MISSING"] };
+  }
+  return evaluatePublicModeGate({
+    requirements: {
+      at: input.at,
+      expectedProvider: input.snapshotProvider,
+      expectedProcessor: PUBLIC_JEV_PROCESSOR,
+      requiredFields: PUBLIC_MARKET_FIELDS,
+    },
+    providerRights: input.providerRights,
+    processorTerms: input.processorTerms,
+  });
 }

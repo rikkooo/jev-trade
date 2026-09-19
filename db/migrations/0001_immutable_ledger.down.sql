@@ -1,7 +1,9 @@
 BEGIN;
 
+DROP FUNCTION IF EXISTS read_public_forecasts();
 DROP VIEW IF EXISTS analytics_aggregate;
 DROP VIEW IF EXISTS paper_position_projection;
+DROP VIEW IF EXISTS visitor_pick_current_results;
 DROP VIEW IF EXISTS active_forecast_outcomes;
 DROP VIEW IF EXISTS forecast_current_states;
 
@@ -15,10 +17,9 @@ DROP FUNCTION IF EXISTS append_job_attempt(jsonb, text);
 DROP FUNCTION IF EXISTS append_job_operation(jsonb);
 DROP FUNCTION IF EXISTS append_paper_correction(jsonb);
 DROP FUNCTION IF EXISTS append_paper_event(jsonb);
-DROP FUNCTION IF EXISTS append_forecast_outcome_correction(jsonb);
-DROP FUNCTION IF EXISTS append_forecast_outcome(jsonb);
-DROP FUNCTION IF EXISTS append_forecast_correction_event(jsonb);
-DROP FUNCTION IF EXISTS append_forecast_terminal_event(jsonb);
+DROP FUNCTION IF EXISTS correct_forecast_outcome(jsonb, jsonb);
+DROP FUNCTION IF EXISTS void_forecast(jsonb);
+DROP FUNCTION IF EXISTS resolve_forecast(jsonb, jsonb);
 DROP FUNCTION IF EXISTS append_policy_decision(jsonb);
 DROP FUNCTION IF EXISTS append_judgment_run(jsonb, jsonb);
 DROP FUNCTION IF EXISTS append_market_snapshot(jsonb, jsonb, jsonb);
@@ -28,6 +29,9 @@ DROP FUNCTION IF EXISTS append_provider_rights(jsonb);
 DROP FUNCTION IF EXISTS upsert_symbol(jsonb);
 DROP FUNCTION IF EXISTS publish_forecast(jsonb, text);
 DROP FUNCTION IF EXISTS public_mode_gate(timestamptz, text, text, text[]);
+DROP FUNCTION IF EXISTS validate_snapshot_history(jsonb, jsonb);
+DROP FUNCTION IF EXISTS verify_ledger_content_hash(text, text, text, jsonb);
+DROP FUNCTION IF EXISTS assert_json_number(jsonb, text, boolean);
 
 DROP TABLE IF EXISTS identifier_expiry_runs;
 DROP TABLE IF EXISTS analytics_events;

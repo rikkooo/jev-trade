@@ -3,6 +3,7 @@ import type {
   Forecast,
   ForecastEvent,
   ForecastOutcome,
+  ForecastResolution,
   IdempotentResult,
   JobAttempt,
   JudgmentRun,
@@ -29,12 +30,38 @@ export interface LedgerRepository {
   publishForecast(
     input: Omit<Forecast, "createdAt">,
   ): IdempotentResult<Forecast>;
-  appendForecastEvent(
-    input: Omit<ForecastEvent, "id" | "createdAt"> & { readonly id?: string },
-  ): ForecastEvent;
-  appendOutcome(input: Omit<ForecastOutcome, "createdAt">): ForecastOutcome;
+  resolveForecast(input: {
+    readonly event: Omit<
+      ForecastEvent,
+      "createdAt" | "type" | "referencesEventId"
+    > & {
+      readonly type: "resolved";
+    };
+    readonly outcome: Omit<
+      ForecastOutcome,
+      "createdAt" | "correctionOfOutcomeId" | "correctionReason"
+    >;
+  }): IdempotentResult<ForecastResolution>;
+  correctForecastOutcome(input: {
+    readonly event: Omit<ForecastEvent, "createdAt" | "type"> & {
+      readonly type: "correction";
+      readonly referencesEventId: string;
+      readonly reason: string;
+    };
+    readonly outcome: Omit<ForecastOutcome, "createdAt"> & {
+      readonly correctionOfOutcomeId: string;
+      readonly correctionReason: string;
+    };
+  }): IdempotentResult<ForecastResolution>;
+  voidForecast(
+    input: Omit<ForecastEvent, "createdAt" | "type" | "referencesEventId"> & {
+      readonly type: "void";
+    },
+  ): IdempotentResult<ForecastEvent>;
   appendPaperEvent(input: Omit<PaperEvent, "createdAt">): PaperEvent;
-  recordJobAttempt(input: Omit<JobAttempt, "createdAt">): JobAttempt;
+  recordJobAttempt(
+    input: Omit<JobAttempt, "createdAt">,
+  ): IdempotentResult<JobAttempt>;
   recordVisitorPick(input: {
     readonly id: string;
     readonly forecastId: string;

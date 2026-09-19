@@ -45,7 +45,7 @@ export const jobAttemptLifecycle = {
 
 /** SECURITY DEFINER entry points granted by the initial ledger migration. */
 export const ledgerProcedureGrants = {
-  jev_public_reader: ["public_mode_gate"],
+  jev_public_reader: ["read_public_forecasts"],
   jev_public_ingest: ["record_visitor_pick", "record_analytics_event"],
   jev_worker: [
     "public_mode_gate",
@@ -54,8 +54,8 @@ export const ledgerProcedureGrants = {
     "append_judgment_run",
     "append_policy_decision",
     "publish_forecast",
-    "append_forecast_terminal_event",
-    "append_forecast_outcome",
+    "resolve_forecast",
+    "void_forecast",
     "append_paper_event",
     "append_job_operation",
     "append_job_attempt",
@@ -69,8 +69,7 @@ export const ledgerProcedureGrants = {
     "upsert_symbol",
     "append_provider_rights",
     "append_processor_terms",
-    "append_forecast_correction_event",
-    "append_forecast_outcome_correction",
+    "correct_forecast_outcome",
     "append_paper_correction",
     "append_job_operation",
     "append_job_attempt",

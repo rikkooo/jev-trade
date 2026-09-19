@@ -3,6 +3,7 @@ import {
   type PublicModeRequirements,
 } from "../operations/provider-rights";
 import { sha256Canonical, sha256Text } from "./canonical-json";
+import { computeLedgerContentHash } from "./content-hash";
 import {
   LedgerConflictError,
   LedgerInvariantError,
@@ -15,6 +16,7 @@ import type {
   Forecast,
   ForecastEvent,
   ForecastOutcome,
+  ForecastResolution,
   IdempotentResult,
   JobAttempt,
   JudgmentRun,
@@ -145,7 +147,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
       }
       sourceVersions.add(sourceVersion);
     }
-    const contentHash = sha256Canonical({
+    const { contentHash } = computeLedgerContentHash("market_snapshot", {
       symbol: input.symbol,
       provider: input.provider,
       cutoffAt: input.cutoffAt,
@@ -153,7 +155,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
       providerFetchedAt: input.providerFetchedAt,
       sourceUpdatedAt: input.sourceUpdatedAt,
       latestMarketSession: input.latestMarketSession,
-      sourceManifest: input.sourceManifest,
+      sourceManifest: input.sourceManifest.map((source) => ({ ...source })),
       state: input.state,
     });
     const existing = this.#snapshots.find(
@@ -195,7 +197,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
         `Snapshot ${input.snapshotId} does not exist`,
       );
     }
-    const contentHash = sha256Canonical({
+    const { contentHash } = computeLedgerContentHash("judgment_run", {
       snapshotId: input.snapshotId,
       provider: input.provider,
       modelVersion: input.modelVersion,
@@ -226,13 +228,12 @@ export class InMemoryLedgerRepository implements LedgerRepository {
         `Judgment ${input.judgmentId} does not exist`,
       );
     }
-    const contentHash = sha256Canonical({
-      id: input.id,
+    const { contentHash } = computeLedgerContentHash("policy_decision", {
       judgmentId: input.judgmentId,
       policyVersion: input.policyVersion,
       action: input.action,
       gateTrace: input.gateTrace,
-      ...(input.sizing === undefined ? {} : { sizing: input.sizing }),
+      sizing: input.sizing ?? null,
     });
     const existing = this.#policyDecisions.find(
       (decision) =>
@@ -331,7 +332,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return { created: true, value: immutableClone(forecast) };
   }
 
-  appendForecastEvent(
+  #appendForecastEvent(
     input: Omit<ForecastEvent, "id" | "createdAt"> & { readonly id?: string },
   ): ForecastEvent {
     if (!this.#forecasts.some((forecast) => forecast.id === input.forecastId)) {
@@ -384,7 +385,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return immutableClone(event);
   }
 
-  appendOutcome(input: Omit<ForecastOutcome, "createdAt">): ForecastOutcome {
+  #appendOutcome(input: Omit<ForecastOutcome, "createdAt">): ForecastOutcome {
     if (!this.#forecasts.some((forecast) => forecast.id === input.forecastId)) {
       throw new LedgerInvariantError(
         `Forecast ${input.forecastId} does not exist`,
@@ -393,8 +394,14 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     if (this.#outcomes.some((outcome) => outcome.id === input.id)) {
       throw new LedgerConflictError(`Outcome ID ${input.id} already exists`);
     }
-    if (!Number.isFinite(input.adjustedReturn)) {
-      throw new LedgerInvariantError("Outcome return must be finite");
+    if (
+      !Number.isFinite(input.adjustedReturn) ||
+      (input.brierScore !== undefined &&
+        (!Number.isFinite(input.brierScore) || input.brierScore < 0)) ||
+      (input.logLoss !== undefined &&
+        (!Number.isFinite(input.logLoss) || input.logLoss < 0))
+    ) {
+      throw new LedgerInvariantError("Outcome scores must be finite and valid");
     }
     if (!/^[a-f0-9]{64}$/.test(input.sourceBarHash)) {
       throw new LedgerInvariantError(
@@ -430,6 +437,140 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return immutableClone(outcome);
   }
 
+  resolveForecast(input: {
+    readonly event: Omit<
+      ForecastEvent,
+      "createdAt" | "type" | "referencesEventId"
+    > & { readonly type: "resolved" };
+    readonly outcome: Omit<
+      ForecastOutcome,
+      "createdAt" | "correctionOfOutcomeId" | "correctionReason"
+    >;
+  }): IdempotentResult<ForecastResolution> {
+    const existingEvent = this.#forecastEvents.find(
+      (event) => event.id === input.event.id,
+    );
+    const existingOutcome = this.#outcomes.find(
+      (outcome) => outcome.id === input.outcome.id,
+    );
+    if (existingEvent !== undefined || existingOutcome !== undefined) {
+      if (existingEvent === undefined || existingOutcome === undefined) {
+        throw new LedgerConflictError(
+          "A forecast resolution cannot be partially replayed",
+        );
+      }
+      const eventPayload = structuredClone(existingEvent);
+      const outcomePayload = structuredClone(existingOutcome);
+      Reflect.deleteProperty(eventPayload, "createdAt");
+      Reflect.deleteProperty(outcomePayload, "createdAt");
+      if (
+        !sameCanonical(eventPayload, input.event) ||
+        !sameCanonical(outcomePayload, input.outcome)
+      ) {
+        throw new LedgerConflictError(
+          "A forecast resolution ID cannot be reused with a different payload",
+        );
+      }
+      return {
+        created: false,
+        value: immutableClone({
+          event: existingEvent,
+          outcome: existingOutcome,
+        }),
+      };
+    }
+
+    const eventLength = this.#forecastEvents.length;
+    const outcomeLength = this.#outcomes.length;
+    try {
+      const event = this.#appendForecastEvent(input.event);
+      const outcome = this.#appendOutcome(input.outcome);
+      return { created: true, value: immutableClone({ event, outcome }) };
+    } catch (error) {
+      this.#forecastEvents.splice(eventLength);
+      this.#outcomes.splice(outcomeLength);
+      throw error;
+    }
+  }
+
+  correctForecastOutcome(input: {
+    readonly event: Omit<ForecastEvent, "createdAt" | "type"> & {
+      readonly type: "correction";
+      readonly referencesEventId: string;
+      readonly reason: string;
+    };
+    readonly outcome: Omit<ForecastOutcome, "createdAt"> & {
+      readonly correctionOfOutcomeId: string;
+      readonly correctionReason: string;
+    };
+  }): IdempotentResult<ForecastResolution> {
+    const existingEvent = this.#forecastEvents.find(
+      (event) => event.id === input.event.id,
+    );
+    const existingOutcome = this.#outcomes.find(
+      (outcome) => outcome.id === input.outcome.id,
+    );
+    if (existingEvent !== undefined || existingOutcome !== undefined) {
+      if (existingEvent === undefined || existingOutcome === undefined) {
+        throw new LedgerConflictError(
+          "An outcome correction cannot be partially replayed",
+        );
+      }
+      const eventPayload = structuredClone(existingEvent);
+      const outcomePayload = structuredClone(existingOutcome);
+      Reflect.deleteProperty(eventPayload, "createdAt");
+      Reflect.deleteProperty(outcomePayload, "createdAt");
+      if (
+        !sameCanonical(eventPayload, input.event) ||
+        !sameCanonical(outcomePayload, input.outcome)
+      ) {
+        throw new LedgerConflictError(
+          "An outcome correction ID cannot be reused with a different payload",
+        );
+      }
+      return {
+        created: false,
+        value: immutableClone({
+          event: existingEvent,
+          outcome: existingOutcome,
+        }),
+      };
+    }
+
+    const eventLength = this.#forecastEvents.length;
+    const outcomeLength = this.#outcomes.length;
+    try {
+      const event = this.#appendForecastEvent(input.event);
+      const outcome = this.#appendOutcome(input.outcome);
+      return { created: true, value: immutableClone({ event, outcome }) };
+    } catch (error) {
+      this.#forecastEvents.splice(eventLength);
+      this.#outcomes.splice(outcomeLength);
+      throw error;
+    }
+  }
+
+  voidForecast(
+    input: Omit<ForecastEvent, "createdAt" | "type" | "referencesEventId"> & {
+      readonly type: "void";
+    },
+  ): IdempotentResult<ForecastEvent> {
+    const existing = this.#forecastEvents.find(
+      (event) => event.id === input.id,
+    );
+    if (existing !== undefined) {
+      const payload = structuredClone(existing);
+      Reflect.deleteProperty(payload, "createdAt");
+      if (!sameCanonical(payload, input)) {
+        throw new LedgerConflictError(
+          "A void event ID cannot be reused with a different payload",
+        );
+      }
+      return { created: false, value: immutableClone(existing) };
+    }
+    return { created: true, value: this.#appendForecastEvent(input) };
+  }
+
   appendPaperEvent(input: Omit<PaperEvent, "createdAt">): PaperEvent {
     if (this.#paperEvents.some((event) => event.id === input.id)) {
       throw new LedgerConflictError(
@@ -438,7 +579,9 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     }
     if (
       !Number.isFinite(input.cashDelta) ||
-      !Number.isFinite(input.sharesDelta)
+      !Number.isFinite(input.sharesDelta) ||
+      (input.price !== undefined &&
+        (!Number.isFinite(input.price) || input.price <= 0))
     ) {
       throw new LedgerInvariantError("Paper event deltas must be finite");
     }
@@ -469,23 +612,29 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     return immutableClone(event);
   }
 
-  recordJobAttempt(input: Omit<JobAttempt, "createdAt">): JobAttempt {
+  recordJobAttempt(
+    input: Omit<JobAttempt, "createdAt">,
+  ): IdempotentResult<JobAttempt> {
     if (input.attemptNumber < 1 || !Number.isInteger(input.attemptNumber)) {
       throw new LedgerInvariantError(
         "attemptNumber must be a positive integer",
       );
     }
-    if (
-      this.#jobAttempts.some(
-        (attempt) =>
-          attempt.id === input.id ||
-          (attempt.operationKey === input.operationKey &&
-            attempt.attemptNumber === input.attemptNumber),
-      )
-    ) {
-      throw new LedgerConflictError(
-        "A job attempt cannot be replaced or reused",
-      );
+    const existing = this.#jobAttempts.find(
+      (attempt) =>
+        attempt.id === input.id ||
+        (attempt.operationKey === input.operationKey &&
+          attempt.attemptNumber === input.attemptNumber),
+    );
+    if (existing !== undefined) {
+      const payload = structuredClone(existing);
+      Reflect.deleteProperty(payload, "createdAt");
+      if (!sameCanonical(payload, input)) {
+        throw new LedgerConflictError(
+          "A job attempt key cannot be reused with a different payload",
+        );
+      }
+      return { created: false, value: immutableClone(existing) };
     }
     if (input.terminalStatus === "failed" && input.errorCode === undefined) {
       throw new LedgerInvariantError("A failed attempt requires an errorCode");
@@ -509,7 +658,7 @@ export class InMemoryLedgerRepository implements LedgerRepository {
     }
     const attempt = immutableClone({ ...input, createdAt: this.#createdAt() });
     this.#jobAttempts.push(attempt);
-    return immutableClone(attempt);
+    return { created: true, value: immutableClone(attempt) };
   }
 
   #identifier(

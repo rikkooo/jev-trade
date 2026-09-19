@@ -1,4 +1,7 @@
 import type { PublicModeRequirements } from "../operations/provider-rights";
+import { computeLedgerContentHash } from "./content-hash";
+import { validateSnapshotHistory } from "./snapshot-contract";
+import { sha256Canonical, type JsonValue } from "./canonical-json";
 import type {
   Forecast,
   ForecastEvent,
@@ -21,13 +24,7 @@ const MUTATION_STATEMENTS = {
     "select append_market_snapshot($1::jsonb, $2::jsonb, $3::jsonb) as id",
   appendJudgmentRun: "select append_judgment_run($1::jsonb, $2::jsonb) as id",
   appendPolicyDecision: "select append_policy_decision($1::jsonb) as id",
-  appendForecastTerminalEvent:
-    "select append_forecast_terminal_event($1::jsonb) as id",
-  appendForecastCorrectionEvent:
-    "select append_forecast_correction_event($1::jsonb) as id",
-  appendForecastOutcome: "select append_forecast_outcome($1::jsonb) as id",
-  appendForecastOutcomeCorrection:
-    "select append_forecast_outcome_correction($1::jsonb) as id",
+  voidForecast: "select id from void_forecast($1::jsonb)",
   appendPaperEvent: "select append_paper_event($1::jsonb) as id",
   appendPaperCorrection: "select append_paper_correction($1::jsonb) as id",
   appendJobOperation: "select append_job_operation($1::jsonb) as id",
@@ -49,6 +46,16 @@ export interface LedgerSqlClient {
     statement: string,
     parameters?: readonly unknown[],
   ): Promise<SqlResult<Row>>;
+}
+
+function assertFiniteNumbers(
+  entries: ReadonlyArray<readonly [string, number | undefined]>,
+): void {
+  for (const [field, value] of entries) {
+    if (value !== undefined && !Number.isFinite(value)) {
+      throw new TypeError(`${field} must be a finite JSON number`);
+    }
+  }
 }
 
 export interface SymbolMutation {
@@ -82,15 +89,19 @@ export interface MarketBarMutation {
 
 export interface SnapshotBarReference {
   readonly barId: string;
-  readonly role: "symbol" | "benchmark" | "outcome";
+  readonly role: "symbol" | "benchmark";
   readonly ordinal: number;
+  readonly symbol: string;
+  readonly sessionDate: string;
 }
 
 export interface EvidenceDescriptorMutation {
   readonly id: string;
   readonly sourceId: string;
+  readonly sourceRevision: string;
+  readonly sourceHash: string;
+  readonly availableAt: string;
   readonly descriptor: Readonly<Record<string, unknown>>;
-  readonly contentHash: string;
 }
 
 export interface JudgmentRunMutation {
@@ -101,7 +112,6 @@ export interface JudgmentRunMutation {
   readonly questionVersion: string;
   readonly status: "succeeded" | "failed";
   readonly typedResponse?: Readonly<Record<string, unknown>>;
-  readonly contentHash?: string;
   readonly errorCode?: string;
   readonly startedAt: string;
   readonly completedAt: string;
@@ -159,12 +169,26 @@ export interface VisitorPickResultMutation {
   readonly id: string;
   readonly visitorPickId: string;
   readonly outcomeId: string;
-  readonly correct: boolean;
 }
 
 export interface PublishedForecastResult {
   readonly created: boolean;
   readonly forecastId: string;
+}
+
+export interface PublicForecastRow extends Record<string, unknown> {
+  readonly forecast_id: string;
+  readonly symbol: string;
+  readonly mode: "position" | "sprint";
+  readonly horizon_sessions: number;
+  readonly cutoff_at: string;
+  readonly latest_market_session: string;
+  readonly provider: string;
+  readonly model_version: string;
+  readonly question_version: string;
+  readonly policy_version: string;
+  readonly status: "published" | "resolved" | "void";
+  readonly realized_label: "up" | "flat" | "down" | null;
 }
 
 export type ForecastTerminalEventMutation = Omit<
@@ -253,18 +277,59 @@ export class PostgresLedgerAdapter {
   }
 
   appendMarketBar(input: MarketBarMutation): Promise<string> {
+    for (const value of [
+      input.unadjustedOpen,
+      input.unadjustedHigh,
+      input.unadjustedLow,
+      input.unadjustedClose,
+      input.adjustedOpen,
+      input.adjustedHigh,
+      input.adjustedLow,
+      input.adjustedClose,
+      input.volume,
+    ]) {
+      if (!Number.isFinite(value)) {
+        throw new TypeError("market bar numbers must be finite JSON numbers");
+      }
+    }
     return this.#appendId(MUTATION_STATEMENTS.appendMarketBar, [input]);
   }
 
   appendMarketSnapshot(input: {
-    readonly snapshot: Omit<MarketSnapshot, "createdAt">;
+    readonly snapshot: Omit<MarketSnapshot, "createdAt" | "contentHash">;
+    readonly benchmarkSymbol: string;
     readonly barReferences: readonly SnapshotBarReference[];
     readonly evidence: readonly EvidenceDescriptorMutation[];
   }): Promise<string> {
+    validateSnapshotHistory({
+      symbol: input.snapshot.symbol,
+      benchmarkSymbol: input.benchmarkSymbol,
+      latestMarketSession: input.snapshot.latestMarketSession,
+      references: input.barReferences,
+    });
+    const hash = computeLedgerContentHash("market_snapshot", {
+      symbol: input.snapshot.symbol,
+      provider: input.snapshot.provider,
+      cutoffAt: input.snapshot.cutoffAt,
+      knowledgeCutoffAt: input.snapshot.knowledgeCutoffAt,
+      providerFetchedAt: input.snapshot.providerFetchedAt,
+      sourceUpdatedAt: input.snapshot.sourceUpdatedAt,
+      latestMarketSession: input.snapshot.latestMarketSession,
+      sourceManifest: input.snapshot.sourceManifest.map((source) => ({
+        sourceId: source.sourceId,
+        sourceRevision: source.sourceRevision,
+        sourceHash: source.sourceHash,
+        availableAt: source.availableAt,
+      })),
+      state: input.snapshot.state,
+    });
     return this.#appendId(MUTATION_STATEMENTS.appendMarketSnapshot, [
-      input.snapshot,
+      { ...input.snapshot, ...hash },
       input.barReferences,
-      input.evidence,
+      input.evidence.map((evidence) => ({
+        ...evidence,
+        contentHash: sha256Canonical(evidence.descriptor),
+      })),
     ]);
   }
 
@@ -272,16 +337,37 @@ export class PostgresLedgerAdapter {
     readonly run: JudgmentRunMutation;
     readonly answers: readonly JudgmentAnswerMutation[];
   }): Promise<string> {
+    const hash = computeLedgerContentHash("judgment_run", {
+      snapshotId: input.run.snapshotId,
+      provider: input.run.provider,
+      modelVersion: input.run.modelVersion,
+      questionVersion: input.run.questionVersion,
+      status: input.run.status,
+      typedResponse: (input.run.typedResponse ?? null) as JsonValue,
+      errorCode: input.run.errorCode ?? null,
+      startedAt: input.run.startedAt,
+      completedAt: input.run.completedAt,
+      answers: input.answers as unknown as JsonValue,
+    });
     return this.#appendId(MUTATION_STATEMENTS.appendJudgmentRun, [
-      input.run,
+      { ...input.run, ...hash },
       input.answers,
     ]);
   }
 
   appendPolicyDecision(
-    input: Omit<PolicyDecision, "createdAt">,
+    input: Omit<PolicyDecision, "createdAt" | "contentHash">,
   ): Promise<string> {
-    return this.#appendId(MUTATION_STATEMENTS.appendPolicyDecision, [input]);
+    const hash = computeLedgerContentHash("policy_decision", {
+      judgmentId: input.judgmentId,
+      policyVersion: input.policyVersion,
+      action: input.action,
+      gateTrace: input.gateTrace,
+      sizing: input.sizing ?? null,
+    });
+    return this.#appendId(MUTATION_STATEMENTS.appendPolicyDecision, [
+      { ...input, ...hash },
+    ]);
   }
 
   async publishForecast(input: {
@@ -300,39 +386,83 @@ export class PostgresLedgerAdapter {
     return { created: row.created, forecastId: row.forecast_id };
   }
 
-  appendForecastTerminalEvent(
-    input: ForecastTerminalEventMutation,
-  ): Promise<string> {
-    return this.#appendId(MUTATION_STATEMENTS.appendForecastTerminalEvent, [
-      input,
+  async resolveForecast(input: {
+    readonly event: ForecastTerminalEventMutation & {
+      readonly type: "resolved";
+    };
+    readonly outcome: ForecastOutcomeMutation;
+  }): Promise<{ created: boolean; eventId: string; outcomeId: string }> {
+    assertFiniteNumbers([
+      ["adjustedReturn", input.outcome.adjustedReturn],
+      ["brierScore", input.outcome.brierScore],
+      ["logLoss", input.outcome.logLoss],
     ]);
+    const result = await this.sql.query<{
+      created: boolean;
+      event_id: string;
+      outcome_id: string;
+    }>("select * from resolve_forecast($1::jsonb, $2::jsonb)", [
+      input.event,
+      input.outcome,
+    ]);
+    const row = result.rows[0];
+    if (row === undefined) throw new Error("resolve_forecast returned no row");
+    return {
+      created: row.created,
+      eventId: row.event_id,
+      outcomeId: row.outcome_id,
+    };
   }
 
-  appendForecastCorrectionEvent(
-    input: ForecastCorrectionEventMutation,
+  voidForecast(
+    input: ForecastTerminalEventMutation & { readonly type: "void" },
   ): Promise<string> {
-    return this.#appendId(MUTATION_STATEMENTS.appendForecastCorrectionEvent, [
-      input,
-    ]);
+    return this.#appendId(MUTATION_STATEMENTS.voidForecast, [input]);
   }
 
-  appendForecastOutcome(input: ForecastOutcomeMutation): Promise<string> {
-    return this.#appendId(MUTATION_STATEMENTS.appendForecastOutcome, [input]);
-  }
-
-  appendForecastOutcomeCorrection(
-    input: ForecastOutcomeCorrectionMutation,
-  ): Promise<string> {
-    return this.#appendId(MUTATION_STATEMENTS.appendForecastOutcomeCorrection, [
-      input,
+  async correctForecastOutcome(input: {
+    readonly event: ForecastCorrectionEventMutation;
+    readonly outcome: ForecastOutcomeCorrectionMutation;
+  }): Promise<{ created: boolean; eventId: string; outcomeId: string }> {
+    assertFiniteNumbers([
+      ["adjustedReturn", input.outcome.adjustedReturn],
+      ["brierScore", input.outcome.brierScore],
+      ["logLoss", input.outcome.logLoss],
     ]);
+    const result = await this.sql.query<{
+      created: boolean;
+      event_id: string;
+      outcome_id: string;
+    }>("select * from correct_forecast_outcome($1::jsonb, $2::jsonb)", [
+      input.event,
+      input.outcome,
+    ]);
+    const row = result.rows[0];
+    if (row === undefined) {
+      throw new Error("correct_forecast_outcome returned no row");
+    }
+    return {
+      created: row.created,
+      eventId: row.event_id,
+      outcomeId: row.outcome_id,
+    };
   }
 
   appendPaperEvent(input: PaperLedgerEventMutation): Promise<string> {
+    assertFiniteNumbers([
+      ["cashDelta", input.cashDelta],
+      ["sharesDelta", input.sharesDelta],
+      ["price", input.price],
+    ]);
     return this.#appendId(MUTATION_STATEMENTS.appendPaperEvent, [input]);
   }
 
   appendPaperCorrection(input: PaperCorrectionMutation): Promise<string> {
+    assertFiniteNumbers([
+      ["cashDelta", input.cashDelta],
+      ["sharesDelta", input.sharesDelta],
+      ["price", input.price],
+    ]);
     return this.#appendId(MUTATION_STATEMENTS.appendPaperCorrection, [input]);
   }
 
@@ -454,5 +584,12 @@ export class PostgresLedgerAdapter {
     const row = result.rows[0];
     if (row === undefined) throw new Error("public_mode_gate returned no row");
     return row;
+  }
+
+  async readPublicForecasts(): Promise<readonly PublicForecastRow[]> {
+    const result = await this.sql.query<PublicForecastRow>(
+      "select * from read_public_forecasts()",
+    );
+    return result.rows;
   }
 }

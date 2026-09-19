@@ -268,63 +268,128 @@ describe("immutable forecast ledger", () => {
   it("rejects backward, duplicate terminal, and orphan lifecycle events", () => {
     const repo = repository();
     const published = seedPublication(repo).value;
-    repo.appendForecastEvent({
+    repo.voidForecast({
+      id: "void_1",
       forecastId: published.id,
-      type: "resolved",
-      reason: "fixed_horizon_reached",
+      type: "void",
+      reason: "irrecoverable_missing_bar",
     });
 
     expect(() =>
-      repo.appendForecastEvent({ forecastId: published.id, type: "published" }),
+      repo.voidForecast({
+        id: "void_2",
+        forecastId: published.id,
+        type: "void",
+        reason: "duplicate",
+      }),
     ).toThrow(LedgerInvariantError);
     expect(() =>
-      repo.appendForecastEvent({ forecastId: published.id, type: "void" }),
-    ).toThrow(LedgerInvariantError);
-    expect(() =>
-      repo.appendForecastEvent({ forecastId: "missing", type: "resolved" }),
+      repo.voidForecast({
+        id: "void_missing",
+        forecastId: "missing",
+        type: "void",
+        reason: "missing",
+      }),
     ).toThrow(LedgerInvariantError);
   });
 
   it("keeps correction history and rebuilds the same active projection", () => {
     const repo = repository();
     const forecast = seedPublication(repo).value;
-    repo.appendForecastEvent({
-      forecastId: forecast.id,
-      type: "resolved",
-      reason: "fixed_horizon_reached",
+    const resolution = repo.resolveForecast({
+      event: {
+        id: "resolved_1",
+        forecastId: forecast.id,
+        type: "resolved",
+        reason: "fixed_horizon_reached",
+      },
+      outcome: {
+        id: "outcome_original",
+        forecastId: forecast.id,
+        realizedLabel: "up",
+        adjustedReturn: 0.12,
+        sourceBarHash: "a".repeat(64),
+      },
     });
-    const original = repo.appendOutcome({
-      id: "outcome_original",
-      forecastId: forecast.id,
-      realizedLabel: "up",
-      adjustedReturn: 0.12,
-      sourceBarHash: "a".repeat(64),
-    });
-    const corrected = repo.appendOutcome({
-      id: "outcome_corrected",
-      forecastId: forecast.id,
-      realizedLabel: "flat",
-      adjustedReturn: 0.004,
-      sourceBarHash: "b".repeat(64),
-      correctionOfOutcomeId: original.id,
-      correctionReason: "provider_split_revision",
-    });
-    repo.appendForecastEvent({
-      forecastId: forecast.id,
-      type: "correction",
-      reason: "provider_split_revision",
-      referencesEventId: repo
-        .readAll()
-        .forecastEvents.find((event) => event.type === "resolved")?.id,
+    expect(
+      repo.resolveForecast({
+        event: {
+          id: "resolved_1",
+          forecastId: forecast.id,
+          type: "resolved",
+          reason: "fixed_horizon_reached",
+        },
+        outcome: {
+          id: "outcome_original",
+          forecastId: forecast.id,
+          realizedLabel: "up",
+          adjustedReturn: 0.12,
+          sourceBarHash: "a".repeat(64),
+        },
+      }).created,
+    ).toBe(false);
+    const correction = repo.correctForecastOutcome({
+      event: {
+        id: "correction_1",
+        forecastId: forecast.id,
+        type: "correction",
+        reason: "provider_split_revision",
+        referencesEventId: resolution.value.event.id,
+      },
+      outcome: {
+        id: "outcome_corrected",
+        forecastId: forecast.id,
+        realizedLabel: "flat",
+        adjustedReturn: 0.004,
+        sourceBarHash: "b".repeat(64),
+        correctionOfOutcomeId: resolution.value.outcome.id,
+        correctionReason: "provider_split_revision",
+      },
     });
 
     const rebuilt = rebuildLedgerProjection(repo.readAll());
     const current = repo.projection();
 
     expect(repo.readAll().outcomes).toHaveLength(2);
-    expect(current.activeOutcomeByForecast[forecast.id]?.id).toBe(corrected.id);
+    expect(current.activeOutcomeByForecast[forecast.id]?.id).toBe(
+      correction.value.outcome.id,
+    );
     expect(rebuilt).toEqual(current);
     expect(current.forecastStatusById[forecast.id]).toBe("resolved");
+  });
+
+  it("rejects non-finite optional scores and paper prices", () => {
+    const repo = repository();
+    const forecast = seedPublication(repo).value;
+    expect(() =>
+      repo.resolveForecast({
+        event: {
+          id: "resolved_nonfinite",
+          forecastId: forecast.id,
+          type: "resolved",
+          reason: "fixed_horizon_reached",
+        },
+        outcome: {
+          id: "outcome_nonfinite",
+          forecastId: forecast.id,
+          realizedLabel: "up",
+          adjustedReturn: 0.03,
+          brierScore: Number.NaN,
+          sourceBarHash: "a".repeat(64),
+        },
+      }),
+    ).toThrow(LedgerInvariantError);
+    expect(repo.readAll().forecastEvents).toHaveLength(1);
+    expect(() =>
+      repo.appendPaperEvent({
+        id: "paper_nonfinite",
+        type: "entry",
+        symbol: "AAPL",
+        cashDelta: -100,
+        sharesDelta: 1,
+        price: Number.POSITIVE_INFINITY,
+      }),
+    ).toThrow(LedgerInvariantError);
   });
 
   it("rejects an outcome until its forecast is resolved", () => {
@@ -332,14 +397,23 @@ describe("immutable forecast ledger", () => {
     const forecast = seedPublication(repo).value;
 
     expect(() =>
-      repo.appendOutcome({
-        id: "outcome_too_early",
-        forecastId: forecast.id,
-        realizedLabel: "up",
-        adjustedReturn: 0.03,
-        sourceBarHash: "a".repeat(64),
+      repo.resolveForecast({
+        event: {
+          id: "resolved_too_early",
+          forecastId: forecast.id,
+          type: "resolved",
+          reason: "fixed_horizon_reached",
+        },
+        outcome: {
+          id: "outcome_too_early",
+          forecastId: "missing",
+          realizedLabel: "up",
+          adjustedReturn: 0.03,
+          sourceBarHash: "a".repeat(64),
+        },
       }),
     ).toThrow(LedgerInvariantError);
+    expect(repo.readAll().forecastEvents).toHaveLength(1);
   });
 
   it("allows correction references only on paper correction events", () => {
@@ -402,6 +476,14 @@ describe("jobs, picks, consent, and public gates", () => {
     expect(
       repo.readAll().jobAttempts.map((attempt) => attempt.terminalStatus),
     ).toEqual(["failed", "succeeded"]);
+    expect(
+      repo.recordJobAttempt({
+        id: "attempt_2",
+        operationKey: "publish:AAPL:2026-09-18",
+        attemptNumber: 2,
+        terminalStatus: "succeeded",
+      }).created,
+    ).toBe(false);
     expect(() =>
       repo.recordJobAttempt({
         id: "attempt_1",

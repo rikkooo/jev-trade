@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type { ProcessorTerms, ProviderRights } from "../ledger/types";
-import { evaluatePublicModeGate } from "./provider-rights";
+import {
+  evaluatePublicForecastRead,
+  evaluatePublicModeGate,
+} from "./provider-rights";
 
 const rights: ProviderRights = {
   id: "rights_1",
@@ -47,6 +50,45 @@ describe("public-mode rights gate", () => {
         processorTerms: [terms],
       }),
     ).toEqual({ allowed: true, blockers: [] });
+  });
+
+  it("binds a public forecast read to its stored snapshot provider", () => {
+    const completeRights = {
+      ...rights,
+      permittedFields: [
+        "daily_ohlcv",
+        "corporate_actions",
+        "exchange_calendar",
+        "structured_events",
+      ],
+    };
+    expect(
+      evaluatePublicForecastRead({
+        at: requirements.at,
+        snapshotProvider: "licensed-provider",
+        judgmentProvider: "openrouter",
+        providerRights: [completeRights],
+        processorTerms: [terms],
+      }).allowed,
+    ).toBe(true);
+    expect(
+      evaluatePublicForecastRead({
+        at: requirements.at,
+        snapshotProvider: "unlicensed-provider",
+        judgmentProvider: "openrouter",
+        providerRights: [completeRights],
+        processorTerms: [terms],
+      }),
+    ).toEqual({ allowed: false, blockers: ["PROVIDER_RIGHTS_MISSING"] });
+    expect(
+      evaluatePublicForecastRead({
+        at: requirements.at,
+        snapshotProvider: "licensed-provider",
+        judgmentProvider: "other-router",
+        providerRights: [completeRights],
+        processorTerms: [terms],
+      }),
+    ).toEqual({ allowed: false, blockers: ["PROCESSOR_TERMS_MISSING"] });
   });
 
   it("fails closed for expired or incomplete records", () => {

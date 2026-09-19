@@ -82,10 +82,17 @@ export interface ForecastOutcome {
   readonly forecastId: string;
   readonly realizedLabel: Direction;
   readonly adjustedReturn: number;
+  readonly brierScore?: number;
+  readonly logLoss?: number;
   readonly sourceBarHash: string;
   readonly correctionOfOutcomeId?: string;
   readonly correctionReason?: string;
   readonly createdAt: IsoDateTime;
+}
+
+export interface ForecastResolution {
+  readonly event: ForecastEvent;
+  readonly outcome: ForecastOutcome;
 }
 
 export type PaperEventType =
@@ -126,6 +133,15 @@ export interface VisitorPick {
   readonly id: string;
   readonly forecastId: string;
   readonly choice: Direction;
+  readonly createdAt: IsoDateTime;
+}
+
+export interface VisitorPickResult {
+  readonly id: string;
+  readonly visitorPickId: string;
+  readonly recordedOutcomeId: string;
+  readonly activeOutcomeId: string;
+  readonly correct: boolean;
   readonly createdAt: IsoDateTime;
 }
 

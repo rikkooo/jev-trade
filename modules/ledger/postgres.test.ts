@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { PostgresLedgerAdapter, type LedgerSqlClient } from "./postgres";
+import { sha256Text } from "./canonical-json";
 
 class RecordingClient implements LedgerSqlClient {
   readonly calls: Array<{
@@ -62,6 +63,18 @@ describe("PostgresLedgerAdapter", () => {
     ]);
   });
 
+  it("does not let a public reader choose the rights-evaluation instant", async () => {
+    const client = new RecordingClient([]);
+    const adapter = new PostgresLedgerAdapter(client);
+    await expect(adapter.readPublicForecasts()).resolves.toEqual([]);
+    expect(client.calls).toEqual([
+      {
+        statement: "select * from read_public_forecasts()",
+        parameters: undefined,
+      },
+    ]);
+  });
+
   it("returns publication identity without requiring direct table reads", async () => {
     const client = new RecordingClient([
       { created: false, forecast_id: "forecast_1" },
@@ -116,5 +129,90 @@ describe("PostgresLedgerAdapter", () => {
       "select append_paper_event($1::jsonb) as id",
       "select append_paper_correction($1::jsonb) as id",
     ]);
+  });
+
+  it("computes a versioned policy hash instead of accepting a caller assertion", async () => {
+    const client = new RecordingClient([{ id: "policy_1" }]);
+    const adapter = new PostgresLedgerAdapter(client);
+
+    await adapter.appendPolicyDecision({
+      id: "policy_1",
+      judgmentId: "judgment_1",
+      policyVersion: "policy-v1",
+      action: "enter",
+      gateTrace: { eligible: true },
+      sizing: { shares: 10 },
+    });
+
+    const parameter = client.calls[0]?.parameters?.[0] as {
+      canonicalPayload: string;
+      contentHash: string;
+    };
+    expect(JSON.parse(parameter.canonicalPayload)).toMatchObject({
+      recipe: "jev-ledger-canonical-json/v1",
+      kind: "policy_decision",
+    });
+    expect(parameter.contentHash).toBe(sha256Text(parameter.canonicalPayload));
+    expect(parameter.contentHash).toBe(
+      "868f3f955d7664b6141c374b04b57e836052f2090449fbda5e21f85b25526fe6",
+    );
+  });
+
+  it("uses one atomic resolution call", async () => {
+    const client = new RecordingClient([
+      { created: false, event_id: "event_1", outcome_id: "outcome_1" },
+    ]);
+    const adapter = new PostgresLedgerAdapter(client);
+    await expect(
+      adapter.resolveForecast({
+        event: {
+          id: "event_1",
+          forecastId: "forecast_1",
+          type: "resolved",
+          reason: "fixed horizon",
+        },
+        outcome: {
+          id: "outcome_1",
+          forecastId: "forecast_1",
+          realizedLabel: "up",
+          adjustedReturn: 0.03,
+          sourceBarHash: "a".repeat(64),
+        },
+      }),
+    ).resolves.toEqual({
+      created: false,
+      eventId: "event_1",
+      outcomeId: "outcome_1",
+    });
+    expect(client.calls[0]?.statement).toBe(
+      "select * from resolve_forecast($1::jsonb, $2::jsonb)",
+    );
+  });
+
+  it("rejects non-finite numbers before reaching PostgreSQL", async () => {
+    const client = new RecordingClient([{ id: "bar_1" }]);
+    const adapter = new PostgresLedgerAdapter(client);
+    expect(() =>
+      adapter.appendMarketBar({
+        id: "bar_1",
+        symbol: "AAPL",
+        provider: "provider",
+        sessionDate: "2026-09-18",
+        sourceId: "source",
+        sourceRevision: "v1",
+        sourceAvailableAt: "2026-09-18T21:30:00.000Z",
+        unadjustedOpen: Number.NaN,
+        unadjustedHigh: 102,
+        unadjustedLow: 99,
+        unadjustedClose: 101,
+        adjustedOpen: 100,
+        adjustedHigh: 102,
+        adjustedLow: 99,
+        adjustedClose: 101,
+        volume: 1000,
+        sourceHash: "a".repeat(64),
+      }),
+    ).toThrow(TypeError);
+    expect(client.calls).toHaveLength(0);
   });
 });
