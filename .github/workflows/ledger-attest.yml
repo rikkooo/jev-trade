@@ -1,0 +1,241 @@
+name: Ledger root proof
+
+on:
+  repository_dispatch:
+    types: [ledger-root]
+  workflow_dispatch:
+
+concurrency:
+  group: ledger-root-attestation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  fixture-proof:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Create non-prospective fixture proof
+        run: pnpm exec tsx deploy/root-publisher/create-fixture-proof.ts > fixture-manual-proof.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fixture-manual-proof
+          path: fixture-manual-proof.json
+          if-no-files-found: error
+          retention-days: 30
+
+  attest-prospective-root:
+    if: >-
+      github.event_name == 'repository_dispatch' &&
+      vars.LEDGER_ATTESTATION_ENABLED == 'true' &&
+      vars.LEDGER_ROOT_ARCHIVE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Materialize dispatch payload
+        env:
+          DISPATCH_PAYLOAD: ${{ toJson(github.event.client_payload) }}
+        run: node -e 'require("node:fs").writeFileSync("dispatch.json", process.env.DISPATCH_PAYLOAD)'
+      - name: Read durable public chain head
+        id: prior
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            try {
+              await github.rest.git.getRef({ owner, repo, ref: "heads/ledger-roots" });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              core.setOutput("found", "false");
+              return;
+            }
+            const response = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: "head.json",
+              ref: "ledger-roots",
+            });
+            if (Array.isArray(response.data) || response.data.type !== "file") {
+              throw new Error("ledger-roots/head.json is not a file");
+            }
+            require("node:fs").writeFileSync(
+              "previous-ledger-root.json",
+              Buffer.from(response.data.content, "base64"),
+            );
+            core.setOutput("found", "true");
+      - name: Verify deadline and previous-root continuity
+        run: |
+          if test -s previous-ledger-root.json; then
+            pnpm exec tsx deploy/root-publisher/verify-dispatch.ts dispatch.json previous-ledger-root.json > ledger-root.json
+          else
+            pnpm exec tsx deploy/root-publisher/verify-dispatch.ts dispatch.json > ledger-root.json
+          fi
+      - name: Upload convenience copy with finite retention
+        uses: actions/upload-artifact@v4
+        with:
+          name: ledger-root-attestation
+          path: ledger-root.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Create GitHub artifact attestation
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: ledger-root.json
+      - name: Enforce completion before the root deadline
+        run: >-
+          node -e 'const fs = require("node:fs");
+          const root = JSON.parse(fs.readFileSync("ledger-root.json", "utf8"));
+          if (Date.now() > Date.parse(root.attestationDeadline))
+          throw new Error("attestation completed after the publication deadline")'
+
+  archive-prospective-root:
+    if: >-
+      github.event_name == 'repository_dispatch' &&
+      vars.LEDGER_ATTESTATION_ENABLED == 'true' &&
+      vars.LEDGER_ROOT_ARCHIVE_ENABLED == 'true'
+    needs: attest-prospective-root
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ledger-root-attestation
+      - name: Append attested root to durable public branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("node:fs");
+            const { owner, repo } = context.repo;
+            const document = JSON.parse(fs.readFileSync("ledger-root.json", "utf8"));
+            if (!/^[0-9a-f]{64}$/.test(document.rootHash)) {
+              throw new Error("verified root artifact has an invalid root hash");
+            }
+            const archivePath = `roots/${document.rootHash}.json`;
+            const content = `${JSON.stringify(document, null, 2)}\n`;
+            const rootBlob = await github.rest.git.createBlob({
+              owner,
+              repo,
+              content,
+              encoding: "utf-8",
+            });
+            let currentRef = null;
+            try {
+              currentRef = await github.rest.git.getRef({
+                owner,
+                repo,
+                ref: "heads/ledger-roots",
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            if (!currentRef) {
+              if (document.previousRootHash !== null) {
+                throw new Error("first archived root must not name a predecessor");
+              }
+              const tree = await github.rest.git.createTree({
+                owner,
+                repo,
+                tree: [
+                  { path: archivePath, mode: "100644", type: "blob", sha: rootBlob.data.sha },
+                  { path: "head.json", mode: "100644", type: "blob", sha: rootBlob.data.sha },
+                ],
+              });
+              const commit = await github.rest.git.createCommit({
+                owner,
+                repo,
+                message: `ledger root ${document.batchKey}`,
+                tree: tree.data.sha,
+                parents: [],
+              });
+              await github.rest.git.createRef({
+                owner,
+                repo,
+                ref: "refs/heads/ledger-roots",
+                sha: commit.data.sha,
+              });
+              return;
+            }
+            try {
+              await github.rest.repos.getContent({
+                owner,
+                repo,
+                path: archivePath,
+                ref: "ledger-roots",
+              });
+              throw new Error(`root ${document.rootHash} is already archived`);
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            const headResponse = await github.rest.repos.getContent({
+              owner,
+              repo,
+              path: "head.json",
+              ref: "ledger-roots",
+            });
+            if (Array.isArray(headResponse.data) || headResponse.data.type !== "file") {
+              throw new Error("ledger-roots/head.json is not a file");
+            }
+            const head = JSON.parse(
+              Buffer.from(headResponse.data.content, "base64").toString("utf8"),
+            );
+            if (head.rootHash !== document.previousRootHash) {
+              throw new Error("durable archive head changed before append");
+            }
+            const currentCommit = await github.rest.git.getCommit({
+              owner,
+              repo,
+              commit_sha: currentRef.data.object.sha,
+            });
+            const tree = await github.rest.git.createTree({
+              owner,
+              repo,
+              base_tree: currentCommit.data.tree.sha,
+              tree: [
+                { path: archivePath, mode: "100644", type: "blob", sha: rootBlob.data.sha },
+                { path: "head.json", mode: "100644", type: "blob", sha: rootBlob.data.sha },
+              ],
+            });
+            const commit = await github.rest.git.createCommit({
+              owner,
+              repo,
+              message: `ledger root ${document.batchKey}`,
+              tree: tree.data.sha,
+              parents: [currentRef.data.object.sha],
+            });
+            await github.rest.git.updateRef({
+              owner,
+              repo,
+              ref: "heads/ledger-roots",
+              sha: commit.data.sha,
+              force: false,
+            });

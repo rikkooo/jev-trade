@@ -105,5 +105,15 @@ describe("fixture public projections", () => {
     expect(FIXTURE_SCORECARD.metrics.brierScore).toBeNull();
     expect(FIXTURE_SCORECARD.metrics.hitRate).toBeNull();
     expect(FIXTURE_SCORECARD.cohort).toBe("fixture_demo_only");
+    expect(FIXTURE_SCORECARD.proof).toEqual({
+      evidenceClass: "fixture_manual_only",
+      externalAttestation: "absent",
+      prospectiveScorecardEligible: false,
+    });
+    expect(FIXTURE_SCORECARD.baselines.map((baseline) => baseline.id)).toEqual([
+      "always_up",
+      "momentum_v1",
+      "eligible_buy_and_hold_v1",
+    ]);
   });
 });

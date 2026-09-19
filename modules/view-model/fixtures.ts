@@ -564,11 +564,41 @@ export const FIXTURE_SCORECARD: ScorecardView = {
   cohort: "fixture_demo_only",
   prospectiveSampleSize: 0,
   distinctResolutionDates: 0,
+  activeHorizons: 0,
   lastRefresh: "2026-09-19T10:00:00.000Z",
+  scoringContract: {
+    version: "scorecard-v1",
+    minimumForecasts: 100,
+    minimumDistinctResolutionDates: 20,
+    minimumPerActiveHorizon: 20,
+    reliabilityMinimumBucketSize: 20,
+    lowSampleWarning:
+      "Not enough prospective evidence for a superiority claim. Same-date observations and overlapping windows are correlated.",
+  },
+  proof: {
+    evidenceClass: "fixture_manual_only",
+    externalAttestation: "absent",
+    prospectiveScorecardEligible: false,
+  },
+  baselines: [
+    { id: "always_up", label: "Always up", metricClass: "direction" },
+    {
+      id: "momentum_v1",
+      label: "Deterministic momentum",
+      metricClass: "direction",
+    },
+    {
+      id: "eligible_buy_and_hold_v1",
+      label: "Eligible-universe buy and hold",
+      metricClass: "portfolio",
+    },
+  ],
   metrics: {
     brierScore: null,
     logLoss: null,
+    publicationSuccessRate: null,
     coverageRate: null,
+    passRate: null,
     hitRate: null,
     paperReturn: null,
     maximumDrawdown: null,

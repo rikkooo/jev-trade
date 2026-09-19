@@ -9,8 +9,10 @@ export const metadata: Metadata = { title: "Prospective scorecard" };
 const metrics = [
   ["Multiclass Brier", FIXTURE_SCORECARD.metrics.brierScore],
   ["Log loss", FIXTURE_SCORECARD.metrics.logLoss],
-  ["Coverage / pass rate", FIXTURE_SCORECARD.metrics.coverageRate],
-  ["Hit rate", FIXTURE_SCORECARD.metrics.hitRate],
+  ["Publication success", FIXTURE_SCORECARD.metrics.publicationSuccessRate],
+  ["Coverage rate", FIXTURE_SCORECARD.metrics.coverageRate],
+  ["Pass / wait rate", FIXTURE_SCORECARD.metrics.passRate],
+  ["Hit rate · secondary", FIXTURE_SCORECARD.metrics.hitRate],
   ["Paper return", FIXTURE_SCORECARD.metrics.paperReturn],
   ["Maximum drawdown", FIXTURE_SCORECARD.metrics.maximumDrawdown],
   ["Turnover", FIXTURE_SCORECARD.metrics.turnover],
@@ -41,6 +43,7 @@ export default function ScorecardPage() {
             horizons begin, externally verified, and later resolved. There is no
             retrospective or fixture performance headline.
           </p>
+          <p>{FIXTURE_SCORECARD.scoringContract.lowSampleWarning}</p>
         </div>
         <Link href="/methodology#scorecard">Scoring contract</Link>
       </section>
@@ -52,7 +55,10 @@ export default function ScorecardPage() {
         <article>
           <span>Eligible forecasts</span>
           <strong>{FIXTURE_SCORECARD.prospectiveSampleSize}</strong>
-          <small>Target: at least 100</small>
+          <small>
+            Target: at least{" "}
+            {FIXTURE_SCORECARD.scoringContract.minimumForecasts}
+          </small>
         </article>
         <article>
           <span>Distinct resolution dates</span>
@@ -61,7 +67,7 @@ export default function ScorecardPage() {
         </article>
         <article>
           <span>Active horizons</span>
-          <strong>0 / 3</strong>
+          <strong>{FIXTURE_SCORECARD.activeHorizons} / 3</strong>
           <small>1, 5, and 20 sessions</small>
         </article>
         <article>
@@ -95,18 +101,16 @@ export default function ScorecardPage() {
           <p className="eyebrow">DECLARED COMPARATORS</p>
           <h2>Baselines registered before scoring</h2>
           <div className="baseline-list">
-            <article>
-              <strong>Always up</strong>
-              <span>Same multiclass scoring contract</span>
-            </article>
-            <article>
-              <strong>Deterministic momentum</strong>
-              <span>Mode and horizon matched</span>
-            </article>
-            <article>
-              <strong>Eligible-universe buy &amp; hold</strong>
-              <span>Paper-return comparison</span>
-            </article>
+            {FIXTURE_SCORECARD.baselines.map((baseline) => (
+              <article key={baseline.id}>
+                <strong>{baseline.label}</strong>
+                <span>
+                  {baseline.metricClass === "direction"
+                    ? "Same multiclass cohort"
+                    : "Equal-weight portfolio comparator"}
+                </span>
+              </article>
+            ))}
           </div>
           <p className="muted">
             No baseline value is shown until the same eligible cohort can be
@@ -122,8 +126,40 @@ export default function ScorecardPage() {
             dates. Same-session symbols and overlapping 20-session windows will
             be labeled as correlated.
           </p>
+          <p className="muted">
+            Adjacent buckets merge below{" "}
+            {FIXTURE_SCORECARD.scoringContract.reliabilityMinimumBucketSize}{" "}
+            resolved observations.
+          </p>
         </section>
       </div>
+
+      <section className="panel">
+        <p className="eyebrow">PUBLIC PROOF STATUS</p>
+        <h2>No external prospective attestation</h2>
+        <div className="baseline-list">
+          <article>
+            <strong>Fixture manual proof</strong>
+            <span>Reproducible local SHA-256 root chain</span>
+          </article>
+          <article>
+            <strong>External attestation</strong>
+            <span>{FIXTURE_SCORECARD.proof.externalAttestation}</span>
+          </article>
+          <article>
+            <strong>Prospective eligibility</strong>
+            <span>
+              {FIXTURE_SCORECARD.proof.prospectiveScorecardEligible
+                ? "Eligible"
+                : "Excluded"}
+            </span>
+          </article>
+        </div>
+        <p className="muted">
+          The manual fixture artifact proves deterministic reconstruction only.
+          It is not an external timestamp and cannot enter the public scorecard.
+        </p>
+      </section>
 
       <section className="visitor-score-panel">
         <LockKeyhole aria-hidden="true" />

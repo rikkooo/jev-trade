@@ -194,11 +194,32 @@ export interface ScorecardView {
   readonly cohort: "fixture_demo_only";
   readonly prospectiveSampleSize: 0;
   readonly distinctResolutionDates: 0;
+  readonly activeHorizons: 0;
   readonly lastRefresh: string;
+  readonly scoringContract: {
+    readonly version: "scorecard-v1";
+    readonly minimumForecasts: 100;
+    readonly minimumDistinctResolutionDates: 20;
+    readonly minimumPerActiveHorizon: 20;
+    readonly reliabilityMinimumBucketSize: 20;
+    readonly lowSampleWarning: string;
+  };
+  readonly proof: {
+    readonly evidenceClass: "fixture_manual_only";
+    readonly externalAttestation: "absent";
+    readonly prospectiveScorecardEligible: false;
+  };
+  readonly baselines: readonly {
+    readonly id: "always_up" | "momentum_v1" | "eligible_buy_and_hold_v1";
+    readonly label: string;
+    readonly metricClass: "direction" | "portfolio";
+  }[];
   readonly metrics: {
     readonly brierScore: null;
     readonly logLoss: null;
+    readonly publicationSuccessRate: null;
     readonly coverageRate: null;
+    readonly passRate: null;
     readonly hitRate: null;
     readonly paperReturn: null;
     readonly maximumDrawdown: null;
