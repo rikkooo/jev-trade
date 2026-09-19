@@ -11,4 +11,7 @@ test-results/
 .DS_Store
 .pnpm-store/
 backups/
-
+.vercel/
+.codex/
+*.local
+*.tsbuildinfo

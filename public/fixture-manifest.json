@@ -1,0 +1,15 @@
+{
+  "fixtureVersion": "jev-trade-public-fixture-v1",
+  "generatedAt": "2026-09-19T10:00:00.000Z",
+  "dataKind": "synthetic_fixture",
+  "liveMarketData": false,
+  "durableWrites": false,
+  "prospectiveScorecardEligible": false,
+  "fixtureProof": {
+    "rootHash": "85093f4471a60a9106c13fba2cb7ec40453d2c321f304b9a1894a7187e3150c6",
+    "proofHash": "4d0f96311d8de093c80de6c82ffacb4060d827d2e3f9872fbc4252bea255d8ce",
+    "commitmentsHash": "2060b3923681e4df2b5f7c1930c6c534ce817d994d6bd8ce3bbf7aea443f2e06",
+    "forecastCount": 9
+  },
+  "disclosure": "All symbols, prices, market states, forecasts, and outcomes are invented demonstration data."
+}
