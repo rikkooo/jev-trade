@@ -1,0 +1,88 @@
+name: Phase work unit
+description: Create a traceable Jev Trade implementation, validation, research, or evidence card.
+title: ""
+labels:
+  - phase:2
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the observable result this card must produce.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this card exists
+      description: Explain the risk, dependency, or user need that makes this work necessary.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: List the behavior and artifacts included in this card.
+    validations:
+      required: true
+  - type: input
+    id: requirements
+    attributes:
+      label: Requirement trace
+      description: List the governing R, AE, or prior-plan IDs.
+      placeholder: R6-R14, AE1-AE3
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance contract
+      description: Use reviewer-checkable conditions with explicit failure behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Required evidence
+      description: Name the tests, receipts, traces, reports, or artifacts required to close the card.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and gates
+      description: Link prerequisite cards and name any provider, evidence, or founder gate.
+    validations:
+      required: true
+  - type: input
+    id: worker
+    attributes:
+      label: Primary worker
+      description: Name the accountable worker or lineage.
+    validations:
+      required: true
+  - type: input
+    id: reviewer
+    attributes:
+      label: Cold reviewer
+      description: Name a reviewer who will not author the implementation being judged.
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Outside this card
+      description: Name tempting adjacent work that remains out of scope.
+    validations:
+      required: true
+  - type: checkboxes
+    id: release
+    attributes:
+      label: Release contract
+      options:
+        - label: Take the next unused prerelease version at merge time.
+          required: true
+        - label: Update VERSION, package.json, and CHANGELOG.md together.
+          required: true
+        - label: Keep the simulation, point-in-time, immutability, and evidence boundaries intact.
+          required: true

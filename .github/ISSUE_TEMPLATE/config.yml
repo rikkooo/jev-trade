@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Active Phase Two goal
+    url: https://github.com/rikkooo/jev-trade/blob/main/GOAL.md
+    about: Read the active product and completion contract before opening work.
+  - name: Evidence Lab roadmap
+    url: https://github.com/rikkooo/jev-trade/blob/main/ROADMAP.md
+    about: Check the milestone, dependency order, and existing cards.
