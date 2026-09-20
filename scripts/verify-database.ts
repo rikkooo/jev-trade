@@ -41,6 +41,14 @@ const BASE_TABLES = [
   "visitor_pick_results",
   "analytics_events",
   "identifier_expiry_runs",
+  "p2_registry_entries",
+  "p2_registry_events",
+  "p2_cohorts",
+  "p2_cohort_events",
+  "p2_source_revisions",
+  "p2_evidence_states",
+  "p2_operator_audit_events",
+  "p2_publication_receipts",
 ] as const;
 
 const VIEWS = [
@@ -49,6 +57,7 @@ const VIEWS = [
   "visitor_pick_current_results",
   "paper_position_projection",
   "analytics_aggregate",
+  "p2_public_evidence_projection",
 ] as const;
 
 const IMMUTABLE_TABLES = [
@@ -73,6 +82,14 @@ const IMMUTABLE_TABLES = [
   "visitor_pick_results",
   "analytics_events",
   "identifier_expiry_runs",
+  "p2_registry_entries",
+  "p2_registry_events",
+  "p2_cohorts",
+  "p2_cohort_events",
+  "p2_source_revisions",
+  "p2_evidence_states",
+  "p2_operator_audit_events",
+  "p2_publication_receipts",
 ] as const;
 
 const LIFECYCLE_TRIGGERS = new Map([
@@ -83,6 +100,10 @@ const LIFECYCLE_TRIGGERS = new Map([
   ["forecast_outcomes", "forecast_outcome_chain"],
   ["job_attempts", "job_attempt_lifecycle"],
   ["job_attempt_events", "job_attempt_event_lifecycle"],
+  ["p2_registry_events", "p2_registry_event_lifecycle"],
+  ["p2_cohort_events", "p2_cohort_event_lifecycle"],
+  ["p2_source_revisions", "p2_source_revision_chain"],
+  ["p2_evidence_states", "p2_evidence_state_source_cutoff"],
 ]);
 
 const CRITICAL_INDEXES = [
@@ -100,6 +121,12 @@ const CRITICAL_INDEXES = [
   "job_attempt_timeline_idx",
   "private_identifiers_expiry_idx",
   "analytics_aggregate_idx",
+  "p2_registry_events_timeline_idx",
+  "p2_cohort_events_timeline_idx",
+  "p2_cohort_one_forecast_lock_idx",
+  "p2_source_revisions_available_idx",
+  "p2_evidence_states_cutoff_idx",
+  "p2_publication_receipts_deadline_idx",
 ] as const;
 
 const FUNCTION_GRANTS = new Map<string, readonly string[]>([
@@ -126,6 +153,15 @@ const FUNCTION_GRANTS = new Map<string, readonly string[]>([
   ["correct_forecast_outcome", ["jev_operator"]],
   ["append_paper_correction", ["jev_operator"]],
   ["purge_expired_identifiers", ["jev_worker", "jev_operator"]],
+  ["p2_append_registry_entry", ["jev_operator"]],
+  ["p2_append_registry_event", ["jev_operator"]],
+  ["p2_append_cohort", ["jev_operator"]],
+  ["p2_append_cohort_event", ["jev_operator"]],
+  ["p2_append_source_revision", ["jev_worker", "jev_operator"]],
+  ["p2_append_evidence_state", ["jev_worker"]],
+  ["p2_append_operator_audit_event", ["jev_operator"]],
+  ["p2_append_publication_receipt", ["jev_operator"]],
+  ["p2_read_evidence_state", ["jev_worker"]],
 ]);
 
 const INTERNAL_FUNCTIONS = [
@@ -140,6 +176,11 @@ const INTERNAL_FUNCTIONS = [
   "assert_json_number",
   "verify_ledger_content_hash",
   "validate_snapshot_history",
+  "p2_verify_content_hash",
+  "p2_validate_registry_event",
+  "p2_validate_cohort_event",
+  "p2_validate_source_revision",
+  "p2_validate_evidence_state",
 ] as const;
 
 const SECURITY_DEFINER_FUNCTIONS = [...FUNCTION_GRANTS.keys()];
@@ -164,6 +205,18 @@ function assertSameMembers(
   invariant(
     JSON.stringify(sorted(actual)) === JSON.stringify(sorted(expected)),
     message,
+  );
+}
+
+function isAllowedDirectRelationGrant(grant: {
+  readonly grantee: string;
+  readonly relation_name: string;
+  readonly privilege_type: string;
+}): boolean {
+  return (
+    grant.grantee === "jev_public_reader" &&
+    grant.relation_name === "p2_public_evidence_projection" &&
+    grant.privilege_type === "SELECT"
   );
 }
 
@@ -414,8 +467,12 @@ async function verifyDatabase(): Promise<void> {
           )
       `;
       invariant(
-        directRelationGrants.length === 0,
-        "PUBLIC or application roles have direct relation privileges",
+        directRelationGrants.every(isAllowedDirectRelationGrant),
+        "PUBLIC or application roles have unexpected direct relation privileges",
+      );
+      invariant(
+        directRelationGrants.some(isAllowedDirectRelationGrant),
+        "public reader lacks the redacted Evidence Lab projection view",
       );
 
       const directColumnGrants = await transaction<

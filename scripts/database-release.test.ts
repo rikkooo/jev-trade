@@ -22,6 +22,10 @@ describe("database release migrations", () => {
         version: "0001_immutable_ledger",
         fileName: "db/migrations/0001_immutable_ledger.up.sql",
       },
+      {
+        version: "0002_evidence_lab_registry",
+        fileName: "db/migrations/0002_evidence_lab_registry.up.sql",
+      },
     ]);
 
     for (const migration of manifest) {

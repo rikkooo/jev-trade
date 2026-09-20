@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { parseServerEnv } from "./env";
+import {
+  operatorDatabaseUrl,
+  publicDatabaseUrl,
+  workerDatabaseUrl,
+} from "./database";
 
 describe("parseServerEnv", () => {
   it("starts safely in fixture mode without credentials", () => {
@@ -74,5 +79,31 @@ describe("parseServerEnv", () => {
         PUBLIC_DISCLOSURE_VERSION: "disclosure-v1",
       }),
     ).toThrow("PUBLIC_MARKET_DATA: requires DURABLE_WRITES=true");
+  });
+
+  it("keeps fixture mode credential-free while requiring the matching Phase Two role URL on demand", () => {
+    expect(parseServerEnv({})).toMatchObject({ APP_MODE: "fixture" });
+    expect(() =>
+      workerDatabaseUrl({
+        APP_MODE: "live",
+        DURABLE_WRITES: "true",
+        DATABASE_URL: "postgres://legacy-runtime",
+      }),
+    ).toThrow("WORKER_DATABASE_URL is required for the worker database role");
+  });
+
+  it("uses only a static server role and never falls back to a request-selectable credential", () => {
+    const environment = {
+      APP_MODE: "live",
+      DURABLE_WRITES: "true",
+      DATABASE_URL: "postgres://legacy-runtime",
+      OPERATOR_DATABASE_URL: "postgres://operator",
+      WORKER_DATABASE_URL: "postgres://worker",
+      PUBLIC_DATABASE_URL: "postgres://public",
+    } as const;
+
+    expect(operatorDatabaseUrl(environment)).toBe("postgres://operator");
+    expect(workerDatabaseUrl(environment)).toBe("postgres://worker");
+    expect(publicDatabaseUrl(environment)).toBe("postgres://public");
   });
 });

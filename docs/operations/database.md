@@ -60,6 +60,7 @@ then applies this reviewed manifest in order:
 |---|---|
 | `0000_roles` | `db/init/001_roles.sql` |
 | `0001_immutable_ledger` | `db/migrations/0001_immutable_ledger.up.sql` |
+| `0002_evidence_lab_registry` | `db/migrations/0002_evidence_lab_registry.up.sql` |
 
 The runner hashes each complete source file with SHA-256. A successful
 application records the version, repository path, checksum, time, and migration
