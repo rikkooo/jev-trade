@@ -6,7 +6,7 @@ All notable Jev Trade changes are recorded here. Versions follow [Semantic Versi
 
 ### Added
 
-- Locked the Phase Two goal around independent prototype validation and an evidence-first predictor and experiment platform ([#10](https://github.com/rikkooo/jev-trade/issues/10)).
+- Locked the Phase Two goal around independent prototype validation and an evidence-first predictor and experiment platform ([#10](https://github.com/rikkooo/jev-trade/issues/10), [#29](https://github.com/rikkooo/jev-trade/pull/29)).
 - Defined the durable product vision, four trading packs, four comparison arms, evidence lifecycle, stage gates, and simulation boundary.
 - Established roadmap, status, issue-card, changelog, and per-issue version controls for long-running execution.
 
