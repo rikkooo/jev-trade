@@ -25,13 +25,13 @@ Future releases are direction, not a promise. A stop decision can remove or resh
 
 The program contract merged through [PR #29](https://github.com/rikkooo/jev-trade/pull/29) as `0.2.0-alpha.1`. Audit artifacts proceed through separate cards; a committed report is not independently accepted until its review and release gates pass.
 
-| Card                                                  | Outcome                                                                | Primary worker   | Depends on | State                                                   |
-| ----------------------------------------------------- | ---------------------------------------------------------------------- | ---------------- | ---------- | ------------------------------------------------------- |
-| [#10](https://github.com/rikkooo/jev-trade/issues/10) | Lock goal, requirements, roadmap, status, issues, and release controls | Sol              | None       | Merged PR #29; Grok 4.6 DD PASS                         |
-| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Audit and 50-row index in PR #35; DD tracked there      |
-| [#12](https://github.com/rikkooo/jev-trade/issues/12) | Cold responsive UI/UX, accessibility, and comprehension audit          | Grok 4.6         | #10        | Report committed in worktree; land and DD               |
-| [#14](https://github.com/rikkooo/jev-trade/issues/14) | Provider rights, point-in-time semantics, and pack readiness matrix    | Gemini 3.8 Flash | #10        | Candidate `1af1350` rejected; fixes and new DD required |
-| [#13](https://github.com/rikkooo/jev-trade/issues/13) | Reconcile cold audits and founder testing                              | Sol + founder    | #11, #12   | Skeleton only; human results pending                    |
+| Card                                                  | Outcome                                                                | Primary worker   | Depends on | State                                                     |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- | ---------------- | ---------- | --------------------------------------------------------- |
+| [#10](https://github.com/rikkooo/jev-trade/issues/10) | Lock goal, requirements, roadmap, status, issues, and release controls | Sol              | None       | Merged PR #29; Grok 4.6 DD PASS                           |
+| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Merged PR #35; Grok DD PASS WITH FINDINGS                 |
+| [#12](https://github.com/rikkooo/jev-trade/issues/12) | Cold responsive UI/UX, accessibility, and comprehension audit          | Grok 4.6         | #10        | Audit report prepared; Opus DD and landing pending        |
+| [#14](https://github.com/rikkooo/jev-trade/issues/14) | Provider rights, point-in-time semantics, and pack readiness matrix    | Gemini 3.8 Flash | #10        | Schema repair candidate; source fixes and Grok DD pending |
+| [#13](https://github.com/rikkooo/jev-trade/issues/13) | Reconcile cold audits and founder testing                              | Sol + founder    | #11, #12   | Skeleton only; human results pending                      |
 
 The independent validators do not fix the code they judge. Accepted fixes receive separate cards and cold reverification.
 
@@ -41,15 +41,15 @@ GitHub's native dependency graph now records #31–#33 blocked by #11, #34 block
 
 ### Stage 1 — Establish the experiment spine
 
-| Card                                                  | Outcome                                                          | Primary worker                   | Depends on                  | State                                                   |
-| ----------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------- | --------------------------- | ------------------------------------------------------- |
-| [#15](https://github.com/rikkooo/jev-trade/issues/15) | Versioned pack contracts and immutable evidence records          | Opus 5.5 on Terra/Opus draft     | #10; #14 for live semantics | Stranded mixed-lineage partial; salvage and rerun gates |
-| [#16](https://github.com/rikkooo/jev-trade/issues/16) | Preregistered cohorts and four equivalent comparison arms        | Opus 5.5                         | #15                         | Blocked by dependency                                   |
-| [#17](https://github.com/rikkooo/jev-trade/issues/17) | Idempotent predictor jobs and versioned research API             | Opus 5.5                         | #15, #16, #31               | Blocked by dependency                                   |
-| [#18](https://github.com/rikkooo/jev-trade/issues/18) | Temporal leakage and adversarial invariant suite                 | Kimi K3 candidate; identity gate | #15-#17                     | Blocked by dependency and model verification            |
-| [#19](https://github.com/rikkooo/jev-trade/issues/19) | Pack-aware policy, execution, reassessment, and outcome resolver | Terra; capacity gate             | #17, #18                    | Blocked by dependency and worker capacity               |
-| [#20](https://github.com/rikkooo/jev-trade/issues/20) | Calibration, statistics, comparison, and report engine           | Kimi K3 candidate; identity gate | #16, #19                    | Blocked by dependency and model verification            |
-| [#30](https://github.com/rikkooo/jev-trade/issues/30) | Independent prospective batch timestamp sink and verifier        | Opus 5.5                         | #15, #16                    | Blocks #26 and authoritative prospective claims         |
+| Card                                                  | Outcome                                                          | Primary worker                   | Depends on                  | State                                           |
+| ----------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------- | --------------------------- | ----------------------------------------------- |
+| [#15](https://github.com/rikkooo/jev-trade/issues/15) | Versioned pack contracts and immutable evidence records          | Opus 5.5 on Terra/Opus draft     | #10; #14 for live semantics | Opus salvage in draft PR #36; Grok DD pending   |
+| [#16](https://github.com/rikkooo/jev-trade/issues/16) | Preregistered cohorts and four equivalent comparison arms        | Opus 5.5                         | #15                         | Blocked by dependency                           |
+| [#17](https://github.com/rikkooo/jev-trade/issues/17) | Idempotent predictor jobs and versioned research API             | Opus 5.5                         | #15, #16, #31               | Blocked by dependency                           |
+| [#18](https://github.com/rikkooo/jev-trade/issues/18) | Temporal leakage and adversarial invariant suite                 | Kimi K3 candidate; identity gate | #15-#17                     | Blocked by dependency and model verification    |
+| [#19](https://github.com/rikkooo/jev-trade/issues/19) | Pack-aware policy, execution, reassessment, and outcome resolver | Terra; capacity gate             | #17, #18                    | Blocked by dependency and worker capacity       |
+| [#20](https://github.com/rikkooo/jev-trade/issues/20) | Calibration, statistics, comparison, and report engine           | Kimi K3 candidate; identity gate | #16, #19                    | Blocked by dependency and model verification    |
+| [#30](https://github.com/rikkooo/jev-trade/issues/30) | Independent prospective batch timestamp sink and verifier        | Opus 5.5                         | #15, #16                    | Blocks #26 and authoritative prospective claims |
 
 The spine is complete when a frozen scenario can run all four arms, resolve under predeclared rules, and reproduce every deterministic result without calling Jev or a provider again.
 
@@ -125,7 +125,7 @@ These assignments apply to the named card, not an entire downstream system. Sol 
 
 ## Current execution gate
 
-#10 passed Grok DD and merged. Accept #11 and #12 only through their reviewed PRs, with their limits intact. The #14 candidate has eight major Opus advisory findings, including fail-open schema cases and unsupported rights claims; it requires corrections and full-branch Grok DD before landing. Opus 5.5 is salvaging #15 on its isolated branch, but #15 cannot merge until its full contract, migration, least-privilege, clean-checkout, and Grok DD gates pass. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
+#10 passed Grok DD and merged. #11 passed Grok DD and merged. Accept #12 only through its reviewed PR, with the human comprehension gate held. The #14 candidate has eight major Opus advisory findings, including fail-open schema cases and unsupported rights claims; it requires corrections and full-branch Grok DD before landing. Opus 5.5 has committed #15 salvage in draft PR #36; its author-reported gates and CI remain subject to Grok DD before merge. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
 
 ## Roadmap maintenance
 
