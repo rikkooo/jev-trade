@@ -20,6 +20,6 @@ Each card remains open until its acceptance criteria, required gates, cold DD, v
 
 ## Current recovery sequence
 
-- Merge the Phase Two program PR #29, then land the existing #11, #12, and #14 reports with their limits intact.
-- For #15, treat Terra's `69a921e` as unverified mixed-lineage partial work. Opus writes a salvage-or-redo decision and completes the contract and migration gates. Specifically test persistence of late/missing/failed receipts without authority, worker proof of timely receipts, value-based projection leakage, a guard against locale-sensitive canonicalization, and the rollback window. Sol asks a fresh Grok 4.6 session for DD on the exact commit; neither Opus nor Astra alone is independent of both contributing lineages.
+- PR #29 and independent audits #11 and #12 have merged. Keep the #12 comprehension and screen-reader limits open in #13; #14's data-readiness report still needs final source verification and independent DD.
+- For #15, treat Terra's `69a921e` as unverified mixed-lineage input. Opus completed a salvage at `53b6395` with CI and preliminary Grok DD, but that branch conflicts with current main and carries an old alpha version. Rebase it, take the next build, rerun the migration and rollback gates, and obtain fresh exact-head Grok DD; neither Opus nor Astra alone is independent of both contributing lineages.
 - Keep prospective publication held until the independent timestamp sink in #30, pack data rights, runtime evidence, and forward-outcome rules all pass. Fixture and replay work may continue behind those gates.
