@@ -529,7 +529,7 @@ flowchart TD
   U15 --> U17
 ```
 
-U1, U2, U4, and the fixture-safe slice of U5 may start in parallel. Each later unit starts only when its hard predecessors have landed. Live-semantics work in U5 and all pack activation remain conditional on U4. E1 is a separately tracked enabling card for the independent prospective timestamp sink; it blocks U16 activation, not fixture replay. The U8 contract and registry invariant slice may begin after U5-U6, while API/job-race cases wait for U7. The locale-independent Jev identity fix in #31 blocks the first real Jev call in U7.
+U1, U2, U4, and the fixture-safe slice of U5 may start in parallel. Each later unit starts only when its hard predecessors have landed. Live-semantics work in U5 and all pack activation remain conditional on U4. E1 is a separately tracked enabling card for the independent prospective timestamp sink; it blocks U16 activation, not fixture replay. The U8 contract and registry invariant slice may begin after U5-U6, while API/job-race cases wait for U7; the full U8 card closes only after U7. U7 may develop fixture routes before #31, but it cannot close or make a real Jev call until the locale-independent identity fix passes.
 
 ## Implementation Units
 

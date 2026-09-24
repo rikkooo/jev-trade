@@ -23,15 +23,15 @@ Future releases are direction, not a promise. A stop decision can remove or resh
 
 ### Stage 0 — Lock and validate
 
-The program contract is in [PR #29](https://github.com/rikkooo/jev-trade/pull/29), not yet on `main` at this review snapshot. Merge it before treating the child-card links or alpha.1 as landed. Audit artifacts exist on isolated branches; a committed report is not a merged or independently accepted issue.
+The program contract is carried by [PR #29](https://github.com/rikkooo/jev-trade/pull/29); GitHub records its current merge state. At this 2026-09-24 review snapshot, it had not yet merged. Audit artifacts exist on isolated branches; a committed report is not a merged or independently accepted issue.
 
-| Card                                                  | Outcome                                                                | Primary worker   | Depends on | State                                     |
-| ----------------------------------------------------- | ---------------------------------------------------------------------- | ---------------- | ---------- | ----------------------------------------- |
-| [#10](https://github.com/rikkooo/jev-trade/issues/10) | Lock goal, requirements, roadmap, status, issues, and release controls | Sol              | None       | PR #29 open; merge gate                   |
-| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Report committed in worktree; land and DD |
-| [#12](https://github.com/rikkooo/jev-trade/issues/12) | Cold responsive UI/UX, accessibility, and comprehension audit          | Grok 4.6         | #10        | Report committed in worktree; land and DD |
-| [#14](https://github.com/rikkooo/jev-trade/issues/14) | Provider rights, point-in-time semantics, and pack readiness matrix    | Gemini 3.8 Flash | #10        | Research committed; rights DD pending     |
-| [#13](https://github.com/rikkooo/jev-trade/issues/13) | Reconcile cold audits and founder testing                              | Sol + founder    | #11, #12   | Skeleton only; human results pending      |
+| Card                                                  | Outcome                                                                | Primary worker   | Depends on | State                                        |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- | ---------------- | ---------- | -------------------------------------------- |
+| [#10](https://github.com/rikkooo/jev-trade/issues/10) | Lock goal, requirements, roadmap, status, issues, and release controls | Sol              | None       | PR #29; Grok DD and merge gate               |
+| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Report committed in worktree; land and DD    |
+| [#12](https://github.com/rikkooo/jev-trade/issues/12) | Cold responsive UI/UX, accessibility, and comprehension audit          | Grok 4.6         | #10        | Report committed in worktree; land and DD    |
+| [#14](https://github.com/rikkooo/jev-trade/issues/14) | Provider rights, point-in-time semantics, and pack readiness matrix    | Gemini 3.8 Flash | #10        | Draft incomplete; corrections and DD pending |
+| [#13](https://github.com/rikkooo/jev-trade/issues/13) | Reconcile cold audits and founder testing                              | Sol + founder    | #11, #12   | Skeleton only; human results pending         |
 
 The independent validators do not fix the code they judge. Accepted fixes receive separate cards and cold reverification.
 
@@ -39,15 +39,15 @@ The first audit identified separate remediation cards: [#31](https://github.com/
 
 ### Stage 1 — Establish the experiment spine
 
-| Card                                                  | Outcome                                                          | Primary worker                       | Depends on                  | State                                           |
-| ----------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------ | --------------------------- | ----------------------------------------------- |
-| [#15](https://github.com/rikkooo/jev-trade/issues/15) | Versioned pack contracts and immutable evidence records          | Opus 5.5                             | #10; #14 for live semantics | Stranded Terra partial; salvage and rerun gates |
-| [#16](https://github.com/rikkooo/jev-trade/issues/16) | Preregistered cohorts and four equivalent comparison arms        | Opus 5.5                             | #15                         | Blocked by dependency                           |
-| [#17](https://github.com/rikkooo/jev-trade/issues/17) | Idempotent predictor jobs and versioned research API             | Opus 5.5                             | #15, #16, #31               | Blocked by dependency                           |
-| [#18](https://github.com/rikkooo/jev-trade/issues/18) | Temporal leakage and adversarial invariant suite                 | Kimi K3                              | #15-#17                     | Blocked by dependency                           |
-| [#19](https://github.com/rikkooo/jev-trade/issues/19) | Pack-aware policy, execution, reassessment, and outcome resolver | Terra or Opus 5.5, assigned at start | #17, #18                    | Blocked by dependency                           |
-| [#20](https://github.com/rikkooo/jev-trade/issues/20) | Calibration, statistics, comparison, and report engine           | Kimi K3                              | #16, #19                    | Blocked by dependency                           |
-| [#30](https://github.com/rikkooo/jev-trade/issues/30) | Independent prospective batch timestamp sink and verifier        | Opus 5.5                             | #15, #16                    | Blocks #26 and authoritative prospective claims |
+| Card                                                  | Outcome                                                          | Primary worker                   | Depends on                  | State                                                   |
+| ----------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------- | --------------------------- | ------------------------------------------------------- |
+| [#15](https://github.com/rikkooo/jev-trade/issues/15) | Versioned pack contracts and immutable evidence records          | Opus 5.5 on Terra/Opus draft     | #10; #14 for live semantics | Stranded mixed-lineage partial; salvage and rerun gates |
+| [#16](https://github.com/rikkooo/jev-trade/issues/16) | Preregistered cohorts and four equivalent comparison arms        | Opus 5.5                         | #15                         | Blocked by dependency                                   |
+| [#17](https://github.com/rikkooo/jev-trade/issues/17) | Idempotent predictor jobs and versioned research API             | Opus 5.5                         | #15, #16, #31               | Blocked by dependency                                   |
+| [#18](https://github.com/rikkooo/jev-trade/issues/18) | Temporal leakage and adversarial invariant suite                 | Kimi K3 candidate; identity gate | #15-#17                     | Blocked by dependency and model verification            |
+| [#19](https://github.com/rikkooo/jev-trade/issues/19) | Pack-aware policy, execution, reassessment, and outcome resolver | Terra; capacity gate             | #17, #18                    | Blocked by dependency and worker capacity               |
+| [#20](https://github.com/rikkooo/jev-trade/issues/20) | Calibration, statistics, comparison, and report engine           | Kimi K3 candidate; identity gate | #16, #19                    | Blocked by dependency and model verification            |
+| [#30](https://github.com/rikkooo/jev-trade/issues/30) | Independent prospective batch timestamp sink and verifier        | Opus 5.5                         | #15, #16                    | Blocks #26 and authoritative prospective claims         |
 
 The spine is complete when a frozen scenario can run all four arms, resolve under predeclared rules, and reproduce every deterministic result without calling Jev or a provider again.
 
@@ -57,12 +57,12 @@ The temporal invariant suite begins with contract and registry tests as soon as 
 
 Day and Swing form the first active learning loop. Scalping and Long-Term advance in parallel to the limit supported by rights and outcome maturity.
 
-| Card                                                  | Outcome                                                           | Primary worker                       | Depends on                                    | State                            |
-| ----------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------ | --------------------------------------------- | -------------------------------- |
-| [#21](https://github.com/rikkooo/jev-trade/issues/21) | Swing Trading end to end                                          | Terra or Opus 5.5, assigned at start | #17, #19, #20; #14 for prospective activation | Blocked by dependency            |
-| [#22](https://github.com/rikkooo/jev-trade/issues/22) | Day Trading with session boundaries and intraday momentum         | Terra                                | #14, #17, #19, #20                            | Blocked by dependency            |
-| [#23](https://github.com/rikkooo/jev-trade/issues/23) | Scalping fixture and replay feasibility, then activation decision | Kimi K3                              | #14, #17-#20                                  | Blocked by dependency and rights |
-| [#24](https://github.com/rikkooo/jev-trade/issues/24) | Point-in-time Long-Term cohort                                    | Terra + Gemini                       | #14, #17, #19, #20                            | Blocked by dependency            |
+| Card                                                  | Outcome                                                           | Primary worker                   | Depends on                                    | State                                     |
+| ----------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------- | --------------------------------------------- | ----------------------------------------- |
+| [#21](https://github.com/rikkooo/jev-trade/issues/21) | Swing Trading end to end                                          | Terra; capacity gate             | #17, #19, #20; #14 for prospective activation | Blocked by dependency and worker capacity |
+| [#22](https://github.com/rikkooo/jev-trade/issues/22) | Day Trading with session boundaries and intraday momentum         | Terra                            | #14, #17, #19, #20                            | Blocked by dependency                     |
+| [#23](https://github.com/rikkooo/jev-trade/issues/23) | Scalping fixture and replay feasibility, then activation decision | Kimi K3 candidate; identity gate | #14, #17-#20                                  | Blocked by dependency and rights          |
+| [#24](https://github.com/rikkooo/jev-trade/issues/24) | Point-in-time Long-Term cohort                                    | Terra + Gemini                   | #14, #17, #19, #20                            | Blocked by dependency                     |
 
 Pack software readiness and evidence readiness are different states. A pack may be implemented while live activation or efficacy remains held.
 
@@ -84,17 +84,46 @@ Closing #27 updates this roadmap. A `GO` authorizes requirements work for the na
 ## Parallel execution policy
 
 - Sol (GPT-6) remains the orchestrator. Opus 5.5 runs directly through Claude Code on this box at `high` reasoning effort. A continuing advisory session is separate from execution and never signs DD.
-- The orchestrator assigns one primary worker and one cold reviewer per card before implementation acceptance. A Claude-authored card receives a fresh non-Claude cold review, normally GPT-6 Astra or Grok. Opus 5.5 may cold-review non-Claude-authored cards in a separate fresh session. A second Claude seat is not an independent lineage for Claude-authored code.
+- Sol assigns the primary worker and cold reviewer when a card starts, before its implementation diff exists. Every contributor lineage counts; mixed Terra/Opus #15 requires Grok DD. Opus 5.5 may cold-review non-Claude-authored cards in a separate clean session, except a card that tests or attests Opus-authored substrate. A second Claude seat is not an independent lineage for Claude-authored code.
 - A DD receipt records the card, exact commit, served model, commands, findings, and disposition. The reviewer starts from the card, diff, repository, and authority docs, not an author's private handoff. The author does not close their own issue or approve their own change.
 - Cards may run in parallel only when their listed dependencies are satisfied or their fixture-only scope is independent of the missing gate.
-- GitHub's native blocked-by links mirror the hard dependencies in these tables. Conditional live-data gates remain explicit in the card text.
+- GitHub issue text and this roadmap must agree on hard dependencies. Conditional live-data gates remain explicit in the card text. Early invariant fixtures in #18 may start after #15-#16, while closing the full card requires #17.
 - Parallel branches do not reserve prerelease numbers. The next `0.2.0-alpha.N` is assigned after rebasing at final merge.
 - A worker may research or prepare fixtures behind a data gate but may not weaken the gate or activate live behavior.
 - The roadmap changes when evidence changes the plan. Superseded cards close with the deciding evidence linked rather than remaining ambiguous.
 
+## Review assignments
+
+These assignments apply to the named card, not an entire downstream system. Sol checks the actual commit authors and served models before each review; a changed or mixed author lineage requires reassignment before acceptance. Terra and K3 work remains held until their capacity and served identity are verified. An author never launches their own DD.
+
+| Card     | Author or candidate       | Cold DD                                      | Extra decision gate                                                    |
+| -------- | ------------------------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| #10      | Sol                       | Grok 4.6                                     | Green CI and merge                                                     |
+| #11      | Opus5                     | Sol for audit provenance                     | Archive raw logs; fix cards remain open                                |
+| #12      | Grok 4.6                  | Opus 5.5                                     | Founder/participant comprehension remains pending                      |
+| #13      | Sol + founder             | Opus 5.5 and Grok 4.6 for source fidelity    | Founder signs material risk/invalid dispositions                       |
+| #14      | Gemini 3.8 Flash          | Opus 5.5 for source trace                    | Executed terms or counsel determination plus founder rights acceptance |
+| #15      | Terra + Opus 5.5          | Grok 4.6                                     | Full migration/security gates on final SHA                             |
+| #16      | Opus 5.5                  | GPT-6 Astra                                  | Reassign if the diff includes Terra-authored code                      |
+| #17      | Opus 5.5                  | GPT-6 Astra                                  | #31 before any real Jev call; reassign on mixed authorship             |
+| #18      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check | DD must be independent of Opus-authored substrate                      |
+| #19      | Terra candidate           | Grok 4.6                                     | Capacity check before start                                            |
+| #20      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check | Independent statistical and substrate review                           |
+| #21, #22 | Terra candidate           | Grok 4.6                                     | Per-pack rights and runtime receipts                                   |
+| #23      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check | Scalping readiness receipt                                             |
+| #24      | Terra + Gemini candidates | Grok 4.6                                     | Long-horizon outcome maturity                                          |
+| #25      | Terra candidate           | Grok 4.6                                     | Uncoached comprehension gate remains separate                          |
+| #26      | Sol + Terra candidates    | Grok 4.6                                     | #30, rights, runtime, and chronology receipts                          |
+| #27      | Sol + founder             | Grok 4.6                                     | Founder signs each stage decision                                      |
+| #30      | Opus 5.5                  | Grok 4.6                                     | Independently replay sink proof                                        |
+| #31      | Non-Claude implementer    | Grok 4.6; Opus finder may reproduce          | Cross-locale golden hashes                                             |
+| #32      | Non-Claude implementer    | Opus 5.5                                     | Clean checkout and failing-case CI receipt                             |
+| #33      | Sol + release operator    | Opus 5.5                                     | Founder signs any retrospective accepted risk                          |
+| #34      | Opus 5.5                  | Grok 4.6                                     | Browser state matrix and #13 dispositions                              |
+
 ## Current execution gate
 
-First merge #10 and land the #11, #12, and #14 reports with their limits intact. Opus 5.5 may salvage #15 on its isolated branch immediately, but #15 cannot merge until its full contract, migration, least-privilege, clean-checkout, and non-Claude DD gates pass. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
+Accept #10 only after its Grok DD and green head checks. Land #11 and #12 with their limits intact. The #14 research requires corrections to overstated legal/runtime labels and missing input coverage before landing. Opus 5.5 may salvage #15 on its isolated branch immediately, but #15 cannot merge until its full contract, migration, least-privilege, clean-checkout, and Grok DD gates pass. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
 
 ## Roadmap maintenance
 

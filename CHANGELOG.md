@@ -2,7 +2,7 @@
 
 All notable Jev Trade changes are recorded here. Versions follow [Semantic Versioning](https://semver.org/), including monotonic prerelease builds during an active milestone.
 
-## [0.2.0-alpha.1] - 2026-09-20
+## [0.2.0-alpha.1] - 2026-09-24
 
 ### Added
 

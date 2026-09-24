@@ -3,7 +3,7 @@
 - **Locked:** 2026-09-20; execution mandate reaffirmed 2026-09-24
 - **Target release:** v0.2.0 — Evidence Lab
 - **Program owner:** Jev Trade orchestrator
-- **Authority:** The product vision and business rules agreed with the founder
+- **Authority:** The product vision and business rules agreed with the founder; [2026-09-24 execution decision](docs/decisions/0002-opus-execution-pivot.md)
 
 ## Objective
 
@@ -30,7 +30,7 @@ The evidence must show where judgment helps, where it does not, how well confide
 
 Sol (GPT-6) remains the single program orchestrator: maintain the goal, issue order, acceptance evidence, independent review assignments, release versions, and truthful status. Claude Opus 5.5 joins as a direct-on-box executor and as a cold due-diligence reviewer of work authored outside the Claude lineage. Use `high` reasoning effort for its advisory and execution sessions. Keep the ongoing Opus advisory session separate from card execution and from cold DD.
 
-Every card must name its author and a reviewer from a different model lineage before implementation is accepted. A Claude-authored change cannot be validated by another Claude session or seat. A cold reviewer starts from the card, pinned diff, repository, and authority documents, records the served model and exact revision, reruns relevant gates, and leaves a durable review receipt. The orchestrator resolves findings and serializes merges and version numbers. The founder retains product-boundary and final stage decisions.
+Every card names its author and independent reviewer when it starts. Lineage means the model provider/family; every contributing lineage in a mixed-authorship commit counts. The cold reviewer must be outside all author lineages and outside the lineage of a system being independently tested or attested. A model whose served identity cannot be verified cannot author an accepted card or be its sole DD. A Claude-authored change cannot be validated by another Claude session or seat. A cold reviewer starts from the card, pinned diff, repository, and authority documents, records the served model and exact revision, reruns relevant gates, and leaves a durable review receipt. Sol assigns and launches DD, preserves all review receipts, resolves findings with the independent reviewer, and serializes merges and version numbers. An author does not dismiss their own blocker or major finding; `ACCEPTED_RISK` and `INVALID_WITH_COUNTEREVIDENCE` dispositions require founder sign-off. The founder retains product-boundary and final stage decisions.
 
 This is an execution pivot, not a change to the simulation boundary, evidence standard, four-pack contract, or completion criteria below. The dated [Opus roadmap review](docs/reviews/2026-09-24-opus-roadmap-review.md) informs the revised sequence; its judgments are reconciled in `ROADMAP.md` and current facts live in `STATUS.md`.
 
