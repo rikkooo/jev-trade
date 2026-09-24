@@ -98,34 +98,34 @@ Closing #27 updates this roadmap. A `GO` authorizes requirements work for the na
 
 These assignments apply to the named card, not an entire downstream system. Sol checks the actual commit authors and served models before each review; a changed or mixed author lineage requires reassignment before acceptance. Terra and K3 work remains held until their capacity and served identity are verified. An author never launches their own DD.
 
-| Card     | Author or candidate       | Cold DD                                        | Extra decision gate                                                    |
-| -------- | ------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
-| #10      | Sol                       | Grok 4.6                                       | Green CI and merge                                                     |
-| #11      | Opus5                     | Grok 4.6 for audit provenance and completeness | Archive raw logs; fix cards remain open                                |
-| #12      | Grok 4.6                  | Opus 5.5                                       | Founder/participant comprehension remains pending                      |
-| #13      | Sol + founder             | Opus 5.5 and Grok 4.6 for source fidelity      | Founder signs material risk/invalid dispositions                       |
-| #14      | Gemini 3.8 Flash          | Opus 5.5 for source trace                      | Executed terms or counsel determination plus founder rights acceptance |
-| #15      | Terra + Opus 5.5          | Grok 4.6                                       | Full migration/security gates on final SHA                             |
-| #16      | Opus 5.5                  | GPT-6 Astra                                    | Reassign if the diff includes Terra-authored code                      |
-| #17      | Opus 5.5                  | GPT-6 Astra                                    | #31 before any real Jev call; reassign on mixed authorship             |
-| #18      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check   | DD must be independent of Opus-authored substrate                      |
-| #19      | Terra candidate           | Grok 4.6                                       | Capacity check before start                                            |
-| #20      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check   | Independent statistical and substrate review                           |
-| #21, #22 | Terra candidate           | Grok 4.6                                       | Per-pack rights and runtime receipts                                   |
-| #23      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check   | Scalping readiness receipt                                             |
-| #24      | Terra + Gemini candidates | Grok 4.6                                       | Long-horizon outcome maturity                                          |
-| #25      | Terra candidate           | Grok 4.6                                       | Uncoached comprehension gate remains separate                          |
-| #26      | Sol + Terra candidates    | Grok 4.6                                       | #30, rights, runtime, and chronology receipts                          |
-| #27      | Sol + founder             | Grok 4.6                                       | Founder signs each stage decision                                      |
-| #30      | Opus 5.5                  | Grok 4.6                                       | Independently replay sink proof                                        |
-| #31      | Non-Claude implementer    | Grok 4.6                                       | Cross-locale golden hashes; original Opus auditor recused              |
-| #32      | Non-Claude implementer    | Grok 4.6                                       | Clean checkout and failing-case CI receipt; Opus auditor recused       |
-| #33      | Sol + release operator    | Grok 4.6                                       | Founder signs any retrospective accepted risk; Opus auditor recused    |
-| #34      | Opus 5.5                  | Grok 4.6                                       | Browser state matrix and #13 dispositions                              |
+| Card     | Author or candidate       | Cold DD                                        | Extra decision gate                                                 |
+| -------- | ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| #10      | Sol                       | Grok 4.6                                       | Green CI and merge                                                  |
+| #11      | Opus5                     | Grok 4.6 for audit provenance and completeness | Archive raw logs; fix cards remain open                             |
+| #12      | Grok 4.6                  | Opus 5.5                                       | Founder/participant comprehension remains pending                   |
+| #13      | Sol + founder             | Opus 5.5 and Grok 4.6 for source fidelity      | Founder signs material risk/invalid dispositions                    |
+| #14      | Opus5 + Gemini + Sol      | Grok 4.6 for full-branch source trace          | Earlier Opus co-authorship rules out Opus DD; rights remain held    |
+| #15      | Terra + Opus 5.5          | Grok 4.6                                       | Full migration/security gates on final SHA                          |
+| #16      | Opus 5.5                  | GPT-6 Astra                                    | Reassign if the diff includes Terra-authored code                   |
+| #17      | Opus 5.5                  | GPT-6 Astra                                    | #31 before any real Jev call; reassign on mixed authorship          |
+| #18      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check   | DD must be independent of Opus-authored substrate                   |
+| #19      | Terra candidate           | Grok 4.6                                       | Capacity check before start                                         |
+| #20      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check   | Independent statistical and substrate review                        |
+| #21, #22 | Terra candidate           | Grok 4.6                                       | Per-pack rights and runtime receipts                                |
+| #23      | Kimi K3 candidate         | GPT-6 Astra or Grok 4.6 after identity check   | Scalping readiness receipt                                          |
+| #24      | Terra + Gemini candidates | Grok 4.6                                       | Long-horizon outcome maturity                                       |
+| #25      | Terra candidate           | Grok 4.6                                       | Uncoached comprehension gate remains separate                       |
+| #26      | Sol + Terra candidates    | Grok 4.6                                       | #30, rights, runtime, and chronology receipts                       |
+| #27      | Sol + founder             | Grok 4.6                                       | Founder signs each stage decision                                   |
+| #30      | Opus 5.5                  | Grok 4.6                                       | Independently replay sink proof                                     |
+| #31      | Non-Claude implementer    | Grok 4.6                                       | Cross-locale golden hashes; original Opus auditor recused           |
+| #32      | Non-Claude implementer    | Grok 4.6                                       | Clean checkout and failing-case CI receipt; Opus auditor recused    |
+| #33      | Sol + release operator    | Grok 4.6                                       | Founder signs any retrospective accepted risk; Opus auditor recused |
+| #34      | Opus 5.5                  | Grok 4.6                                       | Browser state matrix and #13 dispositions                           |
 
 ## Current execution gate
 
-#10 passed Grok DD and merged. Land #11 and #12 with their limits intact. The #14 candidate has eight major DD findings, including fail-open schema cases and unsupported rights claims; it requires corrections and new exact-head DD before landing. Opus 5.5 is salvaging #15 on its isolated branch, but #15 cannot merge until its full contract, migration, least-privilege, clean-checkout, and Grok DD gates pass. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
+#10 passed Grok DD and merged. Land #11 and #12 with their limits intact. The #14 candidate has eight major Opus advisory findings, including fail-open schema cases and unsupported rights claims; it requires corrections and full-branch Grok DD before landing. Opus 5.5 is salvaging #15 on its isolated branch, but #15 cannot merge until its full contract, migration, least-privilege, clean-checkout, and Grok DD gates pass. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
 
 ## Roadmap maintenance
 

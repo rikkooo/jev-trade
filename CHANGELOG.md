@@ -11,7 +11,7 @@ All notable Jev Trade changes are recorded here. Versions follow [Semantic Versi
 
 ### Changed
 
-- Marked the unmerged data-readiness candidate as `CHANGES REQUIRED` after independent review found fail-open readiness cases; all packs remain fixture-only ([#14](https://github.com/rikkooo/jev-trade/issues/14)).
+- Held the unmerged data-readiness candidate after an Opus advisory review found fail-open readiness cases. Older Opus co-authored commits require a different-lineage final DD; all packs remain fixture-only ([#14](https://github.com/rikkooo/jev-trade/issues/14)).
 - Updated roadmap and status after the goal and governance program merged as `0.2.0-alpha.1` ([#10](https://github.com/rikkooo/jev-trade/issues/10)).
 
 ## [0.2.0-alpha.1] - 2026-09-24
