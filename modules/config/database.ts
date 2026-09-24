@@ -1,27 +1,42 @@
 import { parseServerEnv } from "./env";
 
 /**
- * Database role selection is compile-time/server-module owned. HTTP headers,
- * cookies, request bodies, and user credentials never reach this boundary.
+ * Runtime database roles. Each DAL module binds one role at build time; no
+ * header, cookie, body, query parameter, or user credential reaches this
+ * boundary, so a request cannot select or override a database role. The
+ * migration owner is not a runtime role and can never be returned here.
  */
 export type RuntimeDatabaseRole = "operator" | "worker" | "public";
 
-const roleEnvironmentKey: Readonly<Record<RuntimeDatabaseRole, string>> = {
+export const RUNTIME_DATABASE_ROLE_KEYS = {
   operator: "OPERATOR_DATABASE_URL",
   worker: "WORKER_DATABASE_URL",
   public: "PUBLIC_DATABASE_URL",
-};
+} as const satisfies Record<RuntimeDatabaseRole, string>;
+
+export class DatabaseRoleConfigurationError extends Error {
+  readonly code = "DATABASE_ROLE_UNAVAILABLE";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "DatabaseRoleConfigurationError";
+  }
+}
 
 function databaseUrlForRole(
   role: RuntimeDatabaseRole,
-  source: Record<string, string | undefined> = process.env,
+  source: Record<string, string | undefined>,
 ): string {
+  if (!Object.hasOwn(RUNTIME_DATABASE_ROLE_KEYS, role)) {
+    throw new DatabaseRoleConfigurationError("unknown runtime database role");
+  }
+  // parseServerEnv enforces distinct role URLs and migration-owner separation.
   const environment = parseServerEnv(source);
-  const key = roleEnvironmentKey[role] as keyof typeof environment;
+  const key = RUNTIME_DATABASE_ROLE_KEYS[role];
   const url = environment[key];
-  if (typeof url !== "string" || url.length === 0) {
-    throw new Error(
-      `${roleEnvironmentKey[role]} is required for the ${role} database role`,
+  if (!url) {
+    throw new DatabaseRoleConfigurationError(
+      `${key} is required for the ${role} database role`,
     );
   }
   return url;

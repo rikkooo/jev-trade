@@ -3,6 +3,18 @@ import { pathToFileURL } from "node:url";
 import postgres from "postgres";
 
 import {
+  EVIDENCE_LAB_SCHEMA_VERSION,
+  evidenceLabCriticalIndexes,
+  evidenceLabDeferredTriggers,
+  evidenceLabFunctionGrants,
+  evidenceLabImmutableTables,
+  evidenceLabInternalDefinerFunctions,
+  evidenceLabInternalFunctions,
+  evidenceLabLifecycleTriggers,
+  evidenceLabTables,
+} from "../db/schema/evidence-lab";
+import {
+  assertNoUnknownMigrations,
   loadMigrationManifest,
   redactDatabaseError,
   requireMigrationUrl,
@@ -41,14 +53,7 @@ const BASE_TABLES = [
   "visitor_pick_results",
   "analytics_events",
   "identifier_expiry_runs",
-  "p2_registry_entries",
-  "p2_registry_events",
-  "p2_cohorts",
-  "p2_cohort_events",
-  "p2_source_revisions",
-  "p2_evidence_states",
-  "p2_operator_audit_events",
-  "p2_publication_receipts",
+  ...evidenceLabTables,
 ] as const;
 
 const VIEWS = [
@@ -57,7 +62,6 @@ const VIEWS = [
   "visitor_pick_current_results",
   "paper_position_projection",
   "analytics_aggregate",
-  "p2_public_evidence_projection",
 ] as const;
 
 const IMMUTABLE_TABLES = [
@@ -82,17 +86,10 @@ const IMMUTABLE_TABLES = [
   "visitor_pick_results",
   "analytics_events",
   "identifier_expiry_runs",
-  "p2_registry_entries",
-  "p2_registry_events",
-  "p2_cohorts",
-  "p2_cohort_events",
-  "p2_source_revisions",
-  "p2_evidence_states",
-  "p2_operator_audit_events",
-  "p2_publication_receipts",
+  ...evidenceLabImmutableTables,
 ] as const;
 
-const LIFECYCLE_TRIGGERS = new Map([
+const LIFECYCLE_TRIGGERS: readonly (readonly [string, string])[] = [
   ["forecast_events", "forecast_event_lifecycle"],
   ["forecasts", "forecast_dependency_match"],
   ["market_snapshots", "market_snapshot_source_cutoff"],
@@ -100,11 +97,8 @@ const LIFECYCLE_TRIGGERS = new Map([
   ["forecast_outcomes", "forecast_outcome_chain"],
   ["job_attempts", "job_attempt_lifecycle"],
   ["job_attempt_events", "job_attempt_event_lifecycle"],
-  ["p2_registry_events", "p2_registry_event_lifecycle"],
-  ["p2_cohort_events", "p2_cohort_event_lifecycle"],
-  ["p2_source_revisions", "p2_source_revision_chain"],
-  ["p2_evidence_states", "p2_evidence_state_source_cutoff"],
-]);
+  ...evidenceLabLifecycleTriggers,
+];
 
 const CRITICAL_INDEXES = [
   "provider_rights_effective_idx",
@@ -121,12 +115,7 @@ const CRITICAL_INDEXES = [
   "job_attempt_timeline_idx",
   "private_identifiers_expiry_idx",
   "analytics_aggregate_idx",
-  "p2_registry_events_timeline_idx",
-  "p2_cohort_events_timeline_idx",
-  "p2_cohort_one_forecast_lock_idx",
-  "p2_source_revisions_available_idx",
-  "p2_evidence_states_cutoff_idx",
-  "p2_publication_receipts_deadline_idx",
+  ...evidenceLabCriticalIndexes,
 ] as const;
 
 const FUNCTION_GRANTS = new Map<string, readonly string[]>([
@@ -153,15 +142,7 @@ const FUNCTION_GRANTS = new Map<string, readonly string[]>([
   ["correct_forecast_outcome", ["jev_operator"]],
   ["append_paper_correction", ["jev_operator"]],
   ["purge_expired_identifiers", ["jev_worker", "jev_operator"]],
-  ["p2_append_registry_entry", ["jev_operator"]],
-  ["p2_append_registry_event", ["jev_operator"]],
-  ["p2_append_cohort", ["jev_operator"]],
-  ["p2_append_cohort_event", ["jev_operator"]],
-  ["p2_append_source_revision", ["jev_worker", "jev_operator"]],
-  ["p2_append_evidence_state", ["jev_worker"]],
-  ["p2_append_operator_audit_event", ["jev_operator"]],
-  ["p2_append_publication_receipt", ["jev_operator"]],
-  ["p2_read_evidence_state", ["jev_worker"]],
+  ...Object.entries(evidenceLabFunctionGrants),
 ]);
 
 const INTERNAL_FUNCTIONS = [
@@ -176,14 +157,13 @@ const INTERNAL_FUNCTIONS = [
   "assert_json_number",
   "verify_ledger_content_hash",
   "validate_snapshot_history",
-  "p2_verify_content_hash",
-  "p2_validate_registry_event",
-  "p2_validate_cohort_event",
-  "p2_validate_source_revision",
-  "p2_validate_evidence_state",
+  ...evidenceLabInternalFunctions,
 ] as const;
 
-const SECURITY_DEFINER_FUNCTIONS = [...FUNCTION_GRANTS.keys()];
+const SECURITY_DEFINER_FUNCTIONS = [
+  ...FUNCTION_GRANTS.keys(),
+  ...evidenceLabInternalDefinerFunctions,
+];
 const PROJECT_FUNCTIONS = new Set([
   ...SECURITY_DEFINER_FUNCTIONS,
   ...INTERNAL_FUNCTIONS,
@@ -208,16 +188,248 @@ function assertSameMembers(
   );
 }
 
-function isAllowedDirectRelationGrant(grant: {
-  readonly grantee: string;
-  readonly relation_name: string;
-  readonly privilege_type: string;
-}): boolean {
-  return (
-    grant.grantee === "jev_public_reader" &&
-    grant.relation_name === "p2_public_evidence_projection" &&
-    grant.privilege_type === "SELECT"
+type ReadOnlySql = postgres.TransactionSql<Record<string, never>>;
+
+type SealedColumn = readonly [
+  column: string,
+  payloadKey: string,
+  type: "text" | "timestamp" | "integer" | "json",
+];
+
+/** Every typed Phase Two column and the sealed payload field it must equal. */
+const SEALED_COLUMN_CHECKS: readonly {
+  readonly table: string;
+  readonly kind: string;
+  readonly filter?: string;
+  readonly columns: readonly SealedColumn[];
+}[] = [
+  {
+    table: "p2_operator_audit_events",
+    kind: "operator_audit_event",
+    columns: [
+      ["id", "id", "text"],
+      ["command", "command", "text"],
+      ["outcome", "outcome", "text"],
+      ["rejection_code", "rejectionCode", "text"],
+      ["credential_class", "credentialClass", "text"],
+      ["actor_fingerprint", "actorFingerprint", "text"],
+      ["idempotency_key", "idempotencyKey", "text"],
+      ["request_hash", "requestHash", "text"],
+      ["target_kind", "targetKind", "text"],
+      ["target_id", "targetId", "text"],
+    ],
+  },
+  {
+    table: "p2_registry_entries",
+    kind: "registry_entry",
+    columns: [
+      ["id", "id", "text"],
+      ["kind", "kind", "text"],
+      ["version", "version", "text"],
+      ["pack", "pack", "text"],
+      ["supersedes_entry_id", "supersedesEntryId", "text"],
+      ["payload", "payload", "json"],
+    ],
+  },
+  {
+    table: "p2_registry_events",
+    kind: "registry_event",
+    columns: [
+      ["id", "id", "text"],
+      ["registry_entry_id", "registryEntryId", "text"],
+      ["event_type", "eventType", "text"],
+      ["reason", "reason", "text"],
+      ["review_reference", "reviewReference", "text"],
+    ],
+  },
+  {
+    table: "p2_cohorts",
+    kind: "cohort",
+    columns: [
+      ["id", "id", "text"],
+      ["pack", "pack", "text"],
+      ["mode", "mode", "text"],
+      ["cohort_version", "cohortVersion", "integer"],
+      ["predecessor_cohort_id", "predecessorCohortId", "text"],
+      ["registry_root_hash", "registryRootHash", "text"],
+      ["methodology", "methodology", "json"],
+    ],
+  },
+  {
+    table: "p2_cohort_events",
+    kind: "cohort_event",
+    filter: "record.event_type <> 'FIRST_FORECAST_LOCKED'",
+    columns: [
+      ["id", "id", "text"],
+      ["cohort_id", "cohortId", "text"],
+      ["event_type", "eventType", "text"],
+      ["reason", "reason", "text"],
+      ["scheduled_effective_at", "scheduledEffectiveAt", "timestamp"],
+      ["corrects_event_id", "correctsEventId", "text"],
+    ],
+  },
+  {
+    table: "p2_cohort_events",
+    kind: "cohort_forecast_lock",
+    filter: "record.event_type = 'FIRST_FORECAST_LOCKED'",
+    columns: [
+      ["id", "id", "text"],
+      ["cohort_id", "cohortId", "text"],
+      ["reason", "reason", "text"],
+      ["first_forecast_ref", "firstForecastRef", "text"],
+      ["locked_registry_root_hash", "lockedRegistryRootHash", "text"],
+    ],
+  },
+  {
+    table: "p2_source_revisions",
+    kind: "source_revision",
+    columns: [
+      ["id", "id", "text"],
+      ["source_id", "sourceId", "text"],
+      ["revision", "revision", "text"],
+      ["source_kind", "sourceKind", "text"],
+      ["origin", "origin", "text"],
+      ["subject", "subject", "text"],
+      ["payload_hash", "payloadHash", "text"],
+      ["disclosure_class", "disclosureClass", "text"],
+      ["published_at", "publishedAt", "timestamp"],
+      ["effective_at", "effectiveAt", "timestamp"],
+      ["ingested_at", "ingestedAt", "timestamp"],
+      ["available_at", "availableAt", "timestamp"],
+      ["correction_at", "correctionAt", "timestamp"],
+      ["supersedes_revision_id", "supersedesRevisionId", "text"],
+    ],
+  },
+  {
+    table: "p2_evidence_states",
+    kind: "evidence_state",
+    columns: [
+      ["id", "id", "text"],
+      ["pack", "pack", "text"],
+      ["mode", "mode", "text"],
+      ["subject", "subject", "text"],
+      ["cutoff_at", "cutoffAt", "timestamp"],
+      ["normalized_state", "normalizedState", "json"],
+      ["normalized_state_hash", "normalizedStateHash", "text"],
+      ["admission_manifest_hash", "admissionManifestHash", "text"],
+      ["predecessor_state_id", "predecessorStateId", "text"],
+      ["link_kind", "linkKind", "text"],
+      ["change_summary", "changeSummary", "json"],
+    ],
+  },
+  {
+    table: "p2_publication_receipts",
+    kind: "publication_receipt",
+    columns: [
+      ["id", "id", "text"],
+      ["batch_id", "batchId", "text"],
+      ["root_hash", "rootHash", "text"],
+      ["sink_id", "sinkId", "text"],
+      ["observation", "observation", "text"],
+      ["deadline_at", "deadlineAt", "timestamp"],
+      ["submitted_at", "submittedAt", "timestamp"],
+      ["sink_timestamp", "sinkTimestamp", "timestamp"],
+      ["proof_hash", "proofHash", "text"],
+      ["failure_code", "failureCode", "text"],
+      ["corrects_receipt_id", "correctsReceiptId", "text"],
+    ],
+  },
+];
+
+/**
+ * Recomputes every Phase Two seal and derived hash from stored rows. Any
+ * altered, non-canonical, or gate-bypassing record fails verification.
+ */
+async function verifyEvidenceLabRows(transaction: ReadOnlySql): Promise<void> {
+  for (const table of evidenceLabTables) {
+    if (
+      table === "p2_cohort_registry_refs" ||
+      table === "p2_evidence_state_admissions"
+    ) {
+      continue;
+    }
+    const [row] = await transaction<{ broken: string }[]>`
+      SELECT count(*)::text AS broken
+      FROM ${transaction(table)} record
+      WHERE record.content_hash IS DISTINCT FROM p2_sha256_hex(record.canonical_payload)
+         OR p2_canonical_json(record.canonical_payload::jsonb) IS DISTINCT FROM record.canonical_payload
+         OR record.canonical_payload::jsonb ->> 'recipe' IS DISTINCT FROM 'jev-evidence-lab-canonical-json/v1'
+    `;
+    invariant(
+      row?.broken === "0",
+      `${table} has a record whose seal does not verify`,
+    );
+  }
+
+  // Every typed column must still equal the sealed payload; a tamper that
+  // bypassed the append-only triggers would diverge here.
+  for (const check of SEALED_COLUMN_CHECKS) {
+    const payload = "record.canonical_payload::jsonb";
+    const predicates = [
+      `${payload} ->> 'kind' IS DISTINCT FROM '${check.kind}'`,
+      ...check.columns.map(([column, key, type]) => {
+        const path = `${payload} #> '{payload,${key}}'`;
+        switch (type) {
+          case "timestamp":
+            return `(${payload} #>> '{payload,${key}}')::timestamptz IS DISTINCT FROM record.${column}`;
+          case "integer":
+            return `(${payload} #>> '{payload,${key}}')::integer IS DISTINCT FROM record.${column}`;
+          case "json":
+            return `NULLIF(${path}, 'null'::jsonb) IS DISTINCT FROM record.${column}`;
+          default:
+            return `${payload} #>> '{payload,${key}}' IS DISTINCT FROM record.${column}::text`;
+        }
+      }),
+    ];
+    const [row] = await transaction.unsafe<{ broken: string }[]>(
+      `SELECT count(*)::text AS broken FROM ${check.table} record
+       WHERE ${check.filter ?? "true"} AND (${predicates.join(" OR ")})`,
+    );
+    invariant(
+      row?.broken === "0",
+      `${check.table} has a column that diverges from its sealed payload`,
+    );
+  }
+
+  const [cohorts] = await transaction<{ broken: string }[]>`
+    SELECT count(*)::text AS broken
+    FROM p2_cohorts cohort
+    WHERE cohort.registry_root_hash IS DISTINCT FROM p2_registry_root_hash(cohort.id)
+       OR (SELECT count(*) FROM p2_cohort_registry_refs ref WHERE ref.cohort_id = cohort.id) <> 11
+  `;
+  invariant(cohorts?.broken === "0", "a cohort registry root does not verify");
+
+  const [states] = await transaction<{ broken: string }[]>`
+    SELECT count(*)::text AS broken
+    FROM p2_evidence_states state
+    WHERE state.admission_manifest_hash IS DISTINCT FROM p2_admission_manifest_hash(state.id)
+       OR NOT EXISTS (
+         SELECT 1 FROM p2_evidence_state_admissions admission
+         WHERE admission.evidence_state_id = state.id
+       )
+       OR EXISTS (
+         SELECT 1
+         FROM p2_evidence_state_admissions admission
+         JOIN p2_source_revisions source ON source.id = admission.source_revision_id
+         WHERE admission.evidence_state_id = state.id
+           AND source.available_at > state.cutoff_at
+       )
+  `;
+  invariant(
+    states?.broken === "0",
+    "an evidence state admission does not verify",
   );
+
+  const [gates] = await transaction<{ breached: string }[]>`
+    SELECT (
+      (SELECT count(*) FROM p2_evidence_states WHERE mode = 'prospective')
+      + (SELECT count(*) FROM p2_cohort_events event
+         JOIN p2_cohorts cohort ON cohort.id = event.cohort_id
+         WHERE cohort.mode = 'prospective' AND event.event_type = 'ACTIVATION_SCHEDULED')
+      + (SELECT count(*) FROM p2_source_revisions WHERE origin NOT IN ('FIXTURE', 'SYNTHETIC'))
+    )::text AS breached
+  `;
+  invariant(gates?.breached === "0", "a held Phase Two gate has been bypassed");
 }
 
 async function verifyDatabase(): Promise<void> {
@@ -277,6 +489,7 @@ async function verifyDatabase(): Promise<void> {
       `;
       const applied = new Map(appliedRows.map((row) => [row.version, row]));
       appliedSchemaVersions = appliedRows.map((row) => row.version);
+      assertNoUnknownMigrations(appliedSchemaVersions, manifest);
       for (const migration of manifest) {
         const row = applied.get(migration.version);
         invariant(
@@ -372,6 +585,28 @@ async function verifyDatabase(): Promise<void> {
           `lifecycle trigger ${triggerName} is absent or disabled`,
         );
       }
+      const deferredRows = await transaction<
+        {
+          trigger_name: string;
+          deferrable: boolean;
+          initially_deferred: boolean;
+        }[]
+      >`
+        SELECT trigger.tgname AS trigger_name,
+               trigger.tgdeferrable AS deferrable,
+               trigger.tginitdeferred AS initially_deferred
+        FROM pg_trigger trigger
+        WHERE trigger.tgname = ANY(${[...evidenceLabDeferredTriggers]}::text[])
+      `;
+      for (const triggerName of evidenceLabDeferredTriggers) {
+        const row = deferredRows.find(
+          (candidate) => candidate.trigger_name === triggerName,
+        );
+        invariant(
+          row?.deferrable && row.initially_deferred,
+          `commit-time trigger ${triggerName} is not initially deferred`,
+        );
+      }
       checks.push("immutable-and-lifecycle-triggers");
 
       const roleRows = await transaction<
@@ -458,7 +693,7 @@ async function verifyDatabase(): Promise<void> {
         ) privilege
         LEFT JOIN pg_roles grantee ON grantee.oid = privilege.grantee
         WHERE namespace.nspname = 'public'
-          AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+          AND relation.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
           AND (
             privilege.grantee = 0
             OR grantee.rolname IN (
@@ -467,12 +702,8 @@ async function verifyDatabase(): Promise<void> {
           )
       `;
       invariant(
-        directRelationGrants.every(isAllowedDirectRelationGrant),
-        "PUBLIC or application roles have unexpected direct relation privileges",
-      );
-      invariant(
-        directRelationGrants.some(isAllowedDirectRelationGrant),
-        "public reader lacks the redacted Evidence Lab projection view",
+        directRelationGrants.length === 0,
+        "PUBLIC or application roles have direct relation privileges",
       );
 
       const directColumnGrants = await transaction<
@@ -640,6 +871,11 @@ async function verifyDatabase(): Promise<void> {
         "public schema contains unvalidated constraints",
       );
       checks.push("indexes-and-constraints");
+
+      if (applied.has(EVIDENCE_LAB_SCHEMA_VERSION)) {
+        await verifyEvidenceLabRows(transaction);
+        checks.push("evidence-lab-integrity");
+      }
     });
 
     process.stdout.write(

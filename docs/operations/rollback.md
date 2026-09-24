@@ -102,6 +102,11 @@ recovery branch.
 ## Schema problem after application rollback
 
 - Do not run a destructive down migration on Production.
+- Phase Two evidence tables are forward-only once they hold a row; the
+  `0002` down file refuses in that case and exists for disposable branches only.
+  The v0.1 application verifies cleanly against the expanded schema, so an
+  application rollback needs no schema rollback
+  ([Evidence Lab database](evidence-lab-database.md#rollback-policy)).
 - If the expanded schema is intact and compatible, leave it in place.
 - If a bad migration changed disposable projections, fix/rebuild projections
   from immutable events.

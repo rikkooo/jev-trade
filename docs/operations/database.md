@@ -130,10 +130,21 @@ update, or delete domain data.
 CI repeats the release on disposable PostgreSQL 16.10. It starts two migration
 runners concurrently to exercise the advisory lock, proves the next retry is a
 no-op, runs this verifier, executes `tests/db/ledger-foundation.sql`, verifies
-again, then corrupts a disposable registry checksum and requires the next
-migration attempt to fail without exposing a URL. A green CI database job is
-release evidence for the checked-in revision; it is not evidence that a Neon
-Production migration occurred.
+again, runs the Phase Two denial suite `tests/db/evidence-lab-foundation.sql`,
+drives the Evidence Lab fixture through per-role logins, verifies again, and
+rehearses the upgrade from a populated v0.1 database with
+`tests/db/rehearse-evidence-lab-upgrade.sh`. It then corrupts a disposable
+registry checksum and requires the next migration attempt to fail without
+exposing a URL. A green CI database job is release evidence for the checked-in
+revision; it is not evidence that a Neon Production migration occurred.
+
+`pnpm db:migrate -- --through <version>` stops after a reviewed manifest version.
+It exists to rehearse upgrades from a released shape on disposable databases.
+Both the runner and the verifier refuse a database that records a migration
+absent from the reviewed manifest, because once Phase Two evidence exists
+recovery is forward-only. See the
+[Evidence Lab database foundation](evidence-lab-database.md) for the Phase Two
+privilege matrix, gates, and rollback policy.
 
 ### Role verification
 

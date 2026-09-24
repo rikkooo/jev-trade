@@ -97,9 +97,56 @@ export async function loadMigrationManifest(): Promise<
   );
 }
 
+export interface MigrationOptions {
+  /** Stop after this manifest version; used to rehearse upgrades from a released shape. */
+  readonly through: string | null;
+}
+
+export function parseMigrationArguments(
+  argv: readonly string[],
+  manifest: readonly Pick<MigrationSource, "version">[],
+): MigrationOptions {
+  const args = argv.filter((argument) => argument !== "--");
+  if (args.length === 0) return { through: null };
+  if (args.length !== 2 || args[0] !== "--through") {
+    throw new Error("usage: db:migrate [--through <manifest-version>]");
+  }
+  const through = args[1] as string;
+  if (!manifest.some((migration) => migration.version === through)) {
+    throw new Error(`--through ${through} is not a reviewed manifest version`);
+  }
+  return { through };
+}
+
+/**
+ * A database that already carries a version this manifest does not know was
+ * migrated by newer code. Evidence writes make recovery forward-only, so an
+ * older runner must refuse rather than skip past it.
+ */
+export function assertNoUnknownMigrations(
+  appliedVersions: readonly string[],
+  manifest: readonly Pick<MigrationSource, "version">[],
+): void {
+  const known = new Set(manifest.map((migration) => migration.version));
+  const unknown = appliedVersions.filter((version) => !known.has(version));
+  if (unknown.length > 0) {
+    throw new Error(
+      `database has migrations absent from the reviewed manifest (${unknown.join(", ")}); recovery is forward-only`,
+    );
+  }
+}
+
 async function migrate(): Promise<void> {
   const databaseUrl = requireMigrationUrl();
-  const migrations = await loadMigrationManifest();
+  const manifest = await loadMigrationManifest();
+  const options = parseMigrationArguments(process.argv.slice(2), manifest);
+  const throughIndex =
+    options.through === null
+      ? manifest.length - 1
+      : manifest.findIndex(
+          (migration) => migration.version === options.through,
+        );
+  const migrations = manifest.slice(0, throughIndex + 1);
   const sql = postgres(databaseUrl, {
     max: 1,
     prepare: false,
@@ -120,6 +167,14 @@ async function migrate(): Promise<void> {
           applied_by text NOT NULL DEFAULT session_user
         )
       `);
+
+      const recorded = await transaction<{ version: string }[]>`
+        SELECT version FROM public.schema_migrations ORDER BY version
+      `;
+      assertNoUnknownMigrations(
+        recorded.map((row) => row.version),
+        manifest,
+      );
 
       const applied: string[] = [];
       const skipped: string[] = [];
@@ -167,6 +222,7 @@ async function migrate(): Promise<void> {
         ok: true,
         applied: result.applied,
         skipped: result.skipped,
+        ...(options.through === null ? {} : { through: options.through }),
       })}\n`,
     );
   } catch (error: unknown) {

@@ -11,7 +11,10 @@ Never use a `NEXT_PUBLIC_` prefix for a credential.
 | Vercel operator/CI credential | Human or CI only | One team/project; deploy and env actions needed by that identity | Operator password manager or CI secret store; never application env | Vercel account/team token settings |
 | `OPENROUTER_API_KEY` | Judgment Cron/function | Jev Decisions only where provider controls allow; strict spend limit | Vercel sensitive env, separate Preview/Production keys | OpenRouter key dashboard |
 | `MARKET_DATA_API_KEY` | Market ingestion only | Contracted endpoints and environment | Vercel sensitive env after rights approval | Market-data provider console/support |
-| `DATABASE_URL` | Runtime/worker | Pooled restricted runtime role; no schema ownership | Neon/Vercel sensitive env | Neon role/password or branch endpoint |
+| `OPERATOR_DATABASE_URL` | Operator DAL only | Pooled login that is a member of `jev_operator` alone; no schema ownership | Neon/Vercel sensitive env | Neon role/password or branch endpoint |
+| `WORKER_DATABASE_URL` | Worker/Cron DAL only | Pooled login that is a member of `jev_worker` alone; no schema ownership | Neon/Vercel sensitive env | Neon role/password or branch endpoint |
+| `PUBLIC_DATABASE_URL` | Public read DAL only | Pooled login that is a member of `jev_public_reader` alone; no Phase Two capability | Neon/Vercel sensitive env | Neon role/password or branch endpoint |
+| `DATABASE_URL` | Retired (#15) | Rejected when `DURABLE_WRITES=true`; a single shared runtime connection cannot express the role matrix | Remove from runtime env | Neon role/password or branch endpoint |
 | `DATABASE_MIGRATION_URL` | One-shot migration job | Direct migration owner | Operator secret store or tightly scoped release environment; not steady-state function env | Neon migration role/password |
 | `CRON_SECRET` | Vercel Cron and Cron handlers | Authenticate only scheduled routes; 32+ random bytes | Vercel sensitive Production env | Replace Vercel env and redeploy |
 | `OPERATOR_TOKEN` | Local operator scripts if still required | Narrow correction/replay/version procedures | Operator password manager; short-lived preferred | Application/operator credential issuer |
