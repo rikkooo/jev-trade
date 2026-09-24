@@ -493,7 +493,9 @@ flowchart TD
   U4 --> U13[U13 Scalping]
   U4 --> U14[U14 Long-Term]
   U5[U5 P2 contracts] --> U6[U6 Registry and arms]
+  U5 --> E1[E1 Independent timestamp sink]
   U6 --> U7[U7 API and jobs]
+  U6 --> E1
   U7 --> U8[U8 Leakage suite]
   U8 --> U9[U9 Execution and outcomes]
   U6 --> U10[U10 Evidence engine]
@@ -519,6 +521,7 @@ flowchart TD
   U10 --> U16
   U11 --> U16
   U12 --> U16
+  E1 --> U16
   U16 --> U17[U17 Stage decision]
   U3 --> U17
   U13 --> U17
@@ -526,7 +529,7 @@ flowchart TD
   U15 --> U17
 ```
 
-U1, U2, U4, and the fixture-safe slice of U5 may start in parallel. Each later unit starts only when its hard predecessors have landed. Live-semantics work in U5 and all pack activation remain conditional on U4.
+U1, U2, U4, and the fixture-safe slice of U5 may start in parallel. Each later unit starts only when its hard predecessors have landed. Live-semantics work in U5 and all pack activation remain conditional on U4. E1 is a separately tracked enabling card for the independent prospective timestamp sink; it blocks U16 activation, not fixture replay. The U8 contract and registry invariant slice may begin after U5-U6, while API/job-race cases wait for U7. The locale-independent Jev identity fix in #31 blocks the first real Jev call in U7.
 
 ## Implementation Units
 
@@ -537,20 +540,21 @@ U1, U2, U4, and the fixture-safe slice of U5 may start in parallel. Each later u
 | U1   | Cold code, release, and security audit (#11)        | `docs/reviews/v0.1.0-code-release-security-audit.md`                                   | Program contract |
 | U2   | Cold UI/UX and accessibility audit (#12)            | `docs/reviews/v0.1.0-ui-ux-accessibility-audit.md`                                     | Program contract |
 | U3   | Validation reconciliation (#13)                     | `docs/reviews/v0.1.0-validation-reconciliation.md`                                     | U1, U2           |
-| U4   | Data rights and pack-readiness matrix (#14)         | `docs/research/phase-two-pack-readiness.md`                                            | Program contract |
+| U4   | Data rights and pack-readiness matrix (#14)         | `docs/research/phase-two-data-readiness.md`                                            | Program contract |
 | U5   | P2 contracts and immutable ledger spine (#15)       | `db/migrations/0002_*`, `modules/evidence-lab/{contracts,registry,state}/`             | Program contract |
 | U6   | Experiment registry and four-arm equivalence (#16)  | `db/migrations/0003_*`, `config/evidence-lab/`, `modules/evidence-lab/arms/`           | U5               |
-| U7   | Idempotent predictor jobs and APIs (#17)            | `app/api/internal/research/v2/`, `modules/evidence-lab/operations/`                    | U5, U6           |
+| U7   | Idempotent predictor jobs and APIs (#17)            | `app/api/internal/research/v2/`, `modules/evidence-lab/operations/`                    | U5, U6; #31 for real Jev calls |
 | U8   | Temporal and adversarial invariant suite (#18)      | `modules/evidence-lab/invariants/`, `tests/fixtures/evidence-lab/adversarial/`         | U5-U7            |
 | U9   | Policy, execution, reassessment, and outcomes (#19) | `db/migrations/0004_*`, `modules/evidence-lab/{policy,execution,outcomes,positions}/`  | U7, U8           |
 | U10  | Calibration, statistics, and reports (#20)          | `db/migrations/0005_*`, `modules/evidence-lab/{metrics,reports}/`                      | U6, U9           |
-| U11  | Swing pack end to end (#21)                         | `modules/evidence-lab/packs/swing/`                                                    | U7, U9, U10      |
+| U11  | Swing pack end to end (#21)                         | `modules/evidence-lab/packs/swing/`                                                    | U7, U9, U10; U4 for prospective activation |
 | U12  | Day pack end to end (#22)                           | `modules/evidence-lab/packs/day/`                                                      | U4, U7, U9, U10  |
 | U13  | Scalping feasibility and activation decision (#23)  | `modules/evidence-lab/packs/scalping/`, `docs/evidence/scalping-readiness-decision.md` | U4, U7-U10       |
 | U14  | Long-Term cohort (#24)                              | `modules/evidence-lab/packs/long-term/`                                                | U4, U7, U9, U10  |
 | U15  | Tutor and evidence-chain UI (#25)                   | `app/lab/`, `components/evidence-lab/`                                                 | U10-U12          |
-| U16  | Prospective cohort operations (#26)                 | `modules/evidence-lab/operations/`, `docs/operations/evidence-lab-cohorts.md`          | U3, U8, U10-U12  |
+| U16  | Prospective cohort operations (#26)                 | `modules/evidence-lab/operations/`, `docs/operations/evidence-lab-cohorts.md`          | U3, U8, U10-U12, E1 |
 | U17  | Consolidated stage decision (#27)                   | `docs/evidence/phase-two-consolidated-decision.md`                                     | U3, U10, U13-U16 |
+| E1   | Independent timestamp sink and verifier (#30)      | `modules/evidence-lab/attestation/`, `docs/operations/`                                | U5, U6           |
 
 ### Requirement Closure Owners
 
@@ -560,7 +564,7 @@ Units may contribute a storage, contract, test, or evidence slice without claimi
 | ----------------------------- | --------------------------------------- | ----------------------------------------------- |
 | P2-R1-P2-R3                   | U1                                      | Program contract                                |
 | P2-R4-P2-R5                   | U3                                      | U1, U2, founder validation                      |
-| P2-R6-P2-R14, P2-R57          | U17 program audit                       | U5-U8, U10, U16                                 |
+| P2-R6-P2-R14, P2-R57          | U17 program audit                       | U5-U8, E1, U10, U16                             |
 | P2-R15                        | U17 program audit                       | U6 and each pack slice in U11-U14               |
 | P2-R16-P2-R17                 | U6                                      | U5                                              |
 | P2-R18-P2-R23                 | U9                                      | U6-U8                                           |
@@ -635,9 +639,9 @@ Units may contribute a storage, contract, test, or evidence slice without claimi
 
 **Dependencies:** None beyond the Product Contract. Provider purchase is outside this unit.
 
-**Files:** Add `docs/research/phase-two-pack-readiness.md`, `docs/governance/phase-two-data-dictionary.md`, and source links or dated evidence receipts.
+**Files:** Add `docs/research/phase-two-data-readiness.md`, `docs/research/point-in-time-data-dictionary.md`, and source links or dated evidence receipts.
 
-**Approach:** Evaluate candidate primary sources against field coverage, publication/effective/ingestion/correction timestamps, history, corporate actions, exchange/session semantics, redistribution, display, retention, derived-data, model-processing, audit, latency, quota, and cost terms. Mark unknown terms as a hold.
+**Approach:** Evaluate candidate primary sources against field coverage, publication/effective/ingestion/correction timestamps, history, corporate actions, exchange/session semantics, redistribution, display, retention, derived-data, model-processing, audit, latency, quota, and cost terms. Trace short-borrow and locate assumptions, survivorship-free universe membership, and pack-specific runtime benchmarks. A conservative synthetic cost may support labeled fixture research but cannot masquerade as an observed locate or empirical short-execution result. Mark unknown terms as a hold; advertised pricing or permissions are not an executed grant.
 
 **Test scenarios:** Free source lacking redistribution rights; adjusted-only history; late filing restatement; L2 feed without retention rights; economic event revised after publication; provider outage and correction.
 
@@ -831,7 +835,7 @@ Units may contribute a storage, contract, test, or evidence slice without claimi
 
 **Requirements:** P2-R11, P2-R31, P2-R49, P2-R51-P2-R55, P2-R57.
 
-**Dependencies:** U3, U8, U10-U12. U13 and U14 do not block the common operations foundation or Day/Swing activation; prospective activation of either later pack still requires that pack's completed unit and readiness receipt.
+**Dependencies:** U3, U8, U10-U12, E1. U13 and U14 do not block the common operations foundation or Day/Swing activation; prospective activation of either later pack still requires that pack's completed unit and readiness receipt.
 
 **Files:** Extend evidence-lab operations, cron routes and scripts; add cohort and incident runbooks, health projections, and activation receipts.
 

@@ -13,6 +13,7 @@ All notable Jev Trade changes are recorded here. Versions follow [Semantic Versi
 ### Changed
 
 - Opened the v0.2.0 Evidence Lab prerelease line while the public product remains the stable v0.1.0 fixture prototype.
+- Reaffirmed Sol's orchestration and added direct Claude Opus 5.5 execution with independent cross-lineage DD; corrected readiness labels and made the stranded contract branch, audit findings, and prospective timestamp-sink gate explicit ([#10](https://github.com/rikkooo/jev-trade/issues/10), [#30](https://github.com/rikkooo/jev-trade/issues/30)).
 
 ## [0.1.0] - 2026-09-19
 

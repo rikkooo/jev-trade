@@ -14,6 +14,7 @@ Follow the authority order in `GOAL.md`: founder-locked goal, durable `VISION.md
 - Every merged Phase Two issue takes the next prerelease build number and updates `VERSION`, `package.json`, and `CHANGELOG.md` together.
 - Keep `ROADMAP.md`, `STATUS.md`, the GitHub milestone, and issue dependencies aligned after each merge or material evidence change.
 - Use Node.js 22 and pnpm. Run the plan's verification gates before shipping.
+- Follow [`docs/governance/agent-execution.md`](docs/governance/agent-execution.md) for the Sol/Opus execution split, fresh cross-lineage cold DD, and durable review receipts. Opus runs directly through Claude Code at `high` effort; a Claude-authored card cannot receive Claude-only DD.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

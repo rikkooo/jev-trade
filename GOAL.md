@@ -1,6 +1,6 @@
 # Active goal: Jev Trade Phase Two
 
-- **Locked:** 2026-09-20
+- **Locked:** 2026-09-20; execution mandate reaffirmed 2026-09-24
 - **Target release:** v0.2.0 — Evidence Lab
 - **Program owner:** Jev Trade orchestrator
 - **Authority:** The product vision and business rules agreed with the founder
@@ -25,6 +25,14 @@ Jev Trade will compare four arms on equivalent information:
 The primary incremental-Jev policy comparison must hold deterministic risk, policy, execution, and cost versions constant between the standard-tools and Full Jev Trade arms so their difference is attributable to the forecast source. Any comparison that changes the downstream policy is reported separately as a product-bundle comparison.
 
 The evidence must show where judgment helps, where it does not, how well confidence is calibrated, and how results change after costs, latency, risk controls, market regimes, and model or policy versions. Credibility evidence is more valuable than a spectacular but fragile accuracy claim.
+
+## Execution mandate
+
+Sol (GPT-6) remains the single program orchestrator: maintain the goal, issue order, acceptance evidence, independent review assignments, release versions, and truthful status. Claude Opus 5.5 joins as a direct-on-box executor and as a cold due-diligence reviewer of work authored outside the Claude lineage. Use `high` reasoning effort for its advisory and execution sessions. Keep the ongoing Opus advisory session separate from card execution and from cold DD.
+
+Every card must name its author and a reviewer from a different model lineage before implementation is accepted. A Claude-authored change cannot be validated by another Claude session or seat. A cold reviewer starts from the card, pinned diff, repository, and authority documents, records the served model and exact revision, reruns relevant gates, and leaves a durable review receipt. The orchestrator resolves findings and serializes merges and version numbers. The founder retains product-boundary and final stage decisions.
+
+This is an execution pivot, not a change to the simulation boundary, evidence standard, four-pack contract, or completion criteria below. The dated [Opus roadmap review](docs/reviews/2026-09-24-opus-roadmap-review.md) informs the revised sequence; its judgments are reconciled in `ROADMAP.md` and current facts live in `STATUS.md`.
 
 ## Execution order
 
