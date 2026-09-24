@@ -6,7 +6,7 @@ All notable Jev Trade changes are recorded here. Versions follow [Semantic Versi
 
 ### Added
 
-- Published the frozen-v0.1.0 responsive UI, accessibility, and public-state audit with reproducible screenshots and a route-state matrix ([#12](https://github.com/rikkooo/jev-trade/issues/12)). It records eight major and seven minor defects as separate remediation work in [#34](https://github.com/rikkooo/jev-trade/issues/34).
+- Published the frozen-v0.1.0 responsive UI, accessibility, and public-state audit with screenshots, a route-state matrix, and an independent cold-review receipt ([#12](https://github.com/rikkooo/jev-trade/issues/12)). The source audit submitted eight major and seven minor findings; the skip-link major is disputed by Chrome counterevidence, the zoom severity is challenged, and the original raw audit output was not retained. Reconciliation and any accepted fixes remain in [#13](https://github.com/rikkooo/jev-trade/issues/13) and [#34](https://github.com/rikkooo/jev-trade/issues/34).
 
 ### Held
 

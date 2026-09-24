@@ -15,7 +15,7 @@ Supporting artifacts for `docs/reviews/v0.1.0-ui-ux-accessibility-audit.md` and 
 | Reviewer | Grok 4.6, CTT-COMM job `20260920-085142-f137`, host `hq-axon`, seat `Grok` |
 | Audit window (UTC) | 2026-09-20T00:52:48Z identity check through 2026-09-20T01:14:02Z UI run |
 
-Deployed HTML, routes, and screenshots matched the local frozen build for every compared public path. Findings are reported against that shared revision.
+The two origins shared the frozen product revision during this dated run. One deployed LUMA capture in `audit-summary.json` caught the streaming loading fallback rather than the settled page, so the captures did not match for every path. The public deployment has advanced since this run; these historical observations must not be described as current deployment behavior.
 
 ## How the local server was produced
 
@@ -40,5 +40,7 @@ Viewports: desktop 1440×1000, tablet 768×1024, mobile 400×860. Input: Playwri
 ## Files kept
 
 - `run-audit.mjs` — reproduction harness (read-only against the app).
-- `audit-summary.json` — compact route, axe, skip-link, zoom, and contrast extracts.
-- `screenshots/` — one local PNG per cited finding or representative pass. Deployed captures were pixel-identical and were not committed.
+- `audit-summary.json` — a dated condensed capture. Its shape differs from the current `run-audit.mjs` output; the original raw `audit-raw.json` was not retained. It is not an exact replay artifact for every numeric claim in the report.
+- `screenshots/` — selected local PNGs for findings and representative passes. Deployed captures were not committed; the LUMA summary row shows a loading-state mismatch.
+
+The independent Opus cold review, summarized in [the report errata](../../v0.1.0-ui-ux-accessibility-audit.md#14-independent-cold-review-errata-and-unresolved-findings-2026-09-24), reproduced F02–F05, F07, F08, and F12, but found that the harness did not test the Tab after the skip-link jump. It also lists which numeric claims lack committed raw output and records factual errata in the original report. F01 remains disputed, and no hardware screen-reader or five-participant result is implied by these artifacts.

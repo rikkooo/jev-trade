@@ -25,13 +25,13 @@ Future releases are direction, not a promise. A stop decision can remove or resh
 
 The program contract merged through [PR #29](https://github.com/rikkooo/jev-trade/pull/29) as `0.2.0-alpha.1`. Audit artifacts proceed through separate cards; a committed report is not independently accepted until its review and release gates pass.
 
-| Card                                                  | Outcome                                                                | Primary worker   | Depends on | State                                                     |
-| ----------------------------------------------------- | ---------------------------------------------------------------------- | ---------------- | ---------- | --------------------------------------------------------- |
-| [#10](https://github.com/rikkooo/jev-trade/issues/10) | Lock goal, requirements, roadmap, status, issues, and release controls | Sol              | None       | Merged PR #29; Grok 4.6 DD PASS                           |
-| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Merged PR #35; Grok DD PASS WITH FINDINGS                 |
-| [#12](https://github.com/rikkooo/jev-trade/issues/12) | Cold responsive UI/UX, accessibility, and comprehension audit          | Grok 4.6         | #10        | Audit report prepared; Opus DD and landing pending        |
-| [#14](https://github.com/rikkooo/jev-trade/issues/14) | Provider rights, point-in-time semantics, and pack readiness matrix    | Gemini 3.8 Flash | #10        | Schema repair candidate; source fixes and Grok DD pending |
-| [#13](https://github.com/rikkooo/jev-trade/issues/13) | Reconcile cold audits and founder testing                              | Sol + founder    | #11, #12   | Skeleton only; human results pending                      |
+| Card                                                  | Outcome                                                                | Primary worker   | Depends on | State                                                          |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- | ---------------- | ---------- | -------------------------------------------------------------- |
+| [#10](https://github.com/rikkooo/jev-trade/issues/10) | Lock goal, requirements, roadmap, status, issues, and release controls | Sol              | None       | Merged PR #29; Grok 4.6 DD PASS                                |
+| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Merged PR #35; Grok DD PASS WITH FINDINGS                      |
+| [#12](https://github.com/rikkooo/jev-trade/issues/12) | Cold responsive UI/UX, accessibility, and comprehension audit          | Grok 4.6         | #10        | Opus DD disputes F01; revision and final exact-head DD pending |
+| [#14](https://github.com/rikkooo/jev-trade/issues/14) | Provider rights, point-in-time semantics, and pack readiness matrix    | Gemini 3.8 Flash | #10        | Schema repair candidate; source fixes and Grok DD pending      |
+| [#13](https://github.com/rikkooo/jev-trade/issues/13) | Reconcile cold audits and founder testing                              | Sol + founder    | #11, #12   | Skeleton only; human results pending                           |
 
 The independent validators do not fix the code they judge. Accepted fixes receive separate cards and cold reverification.
 
