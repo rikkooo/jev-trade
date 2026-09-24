@@ -2,6 +2,18 @@
 
 All notable Jev Trade changes are recorded here. Versions follow [Semantic Versioning](https://semver.org/), including monotonic prerelease builds during an active milestone.
 
+## [0.2.0-alpha.2] - 2026-09-24
+
+### Added
+
+- Published the independent frozen-v0.1.0 code, release, security, and reproducibility audit, with a 50-row machine-readable requirement index and privately archived raw evidence ([#11](https://github.com/rikkooo/jev-trade/issues/11)).
+- Recorded three major findings for separate fixes: locale-sensitive Jev request hashing ([#31](https://github.com/rikkooo/jev-trade/issues/31)), a broken and unenforced forecast verification gate ([#32](https://github.com/rikkooo/jev-trade/issues/32)), and a missing contemporaneous release receipt with incomplete rollback evidence ([#33](https://github.com/rikkooo/jev-trade/issues/33)).
+
+### Changed
+
+- Marked the unmerged data-readiness candidate as `CHANGES REQUIRED` after independent review found fail-open readiness cases; all packs remain fixture-only ([#14](https://github.com/rikkooo/jev-trade/issues/14)).
+- Updated roadmap and status after the goal and governance program merged as `0.2.0-alpha.1` ([#10](https://github.com/rikkooo/jev-trade/issues/10)).
+
 ## [0.2.0-alpha.1] - 2026-09-24
 
 ### Added
@@ -22,5 +34,6 @@ All notable Jev Trade changes are recorded here. Versions follow [Semantic Versi
 - Released the public fixture prototype with blind picks, Position and Sprint modes, separated judgment and risk concepts, immutable audit evidence, deterministic policy and scoring, baseline comparisons, and a zero-sample prospective scorecard.
 - Added reproducible forecast and deployment verification, database release controls, Vercel and Docker deployment paths, and the simulation and methodology disclosures.
 
-[0.2.0-alpha.1]: https://github.com/rikkooo/jev-trade/compare/v0.1.0...HEAD
+[0.2.0-alpha.2]: https://github.com/rikkooo/jev-trade/compare/8040b97...HEAD
+[0.2.0-alpha.1]: https://github.com/rikkooo/jev-trade/compare/v0.1.0...8040b97
 [0.1.0]: https://github.com/rikkooo/jev-trade/releases/tag/v0.1.0
