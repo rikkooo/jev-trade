@@ -37,6 +37,8 @@ The independent validators do not fix the code they judge. Accepted fixes receiv
 
 The first audit identified separate remediation cards: [#31](https://github.com/rikkooo/jev-trade/issues/31) for locale-independent Jev hashing, [#32](https://github.com/rikkooo/jev-trade/issues/32) for the forecast release gate, and [#33](https://github.com/rikkooo/jev-trade/issues/33) for the missing v0.1.0 release receipt. The UI audit's eight major findings are grouped in [#34](https://github.com/rikkooo/jev-trade/issues/34). Their acceptance evidence feeds #13; no retrospective receipt may be represented as contemporaneous.
 
+GitHub's native dependency graph now records #31–#33 blocked by #11, #34 blocked by #12, #17 blocked by #31, #30 blocked by #15 and #16, and #26 blocked by #30. Initial #13 triage may guide #34 fixes without making #34 depend on #13 closure and creating a cycle.
+
 ### Stage 1 — Establish the experiment spine
 
 | Card                                                  | Outcome                                                          | Primary worker                   | Depends on                  | State                                                   |
@@ -116,9 +118,9 @@ These assignments apply to the named card, not an entire downstream system. Sol 
 | #26      | Sol + Terra candidates    | Grok 4.6                                     | #30, rights, runtime, and chronology receipts                          |
 | #27      | Sol + founder             | Grok 4.6                                     | Founder signs each stage decision                                      |
 | #30      | Opus 5.5                  | Grok 4.6                                     | Independently replay sink proof                                        |
-| #31      | Non-Claude implementer    | Grok 4.6; Opus finder may reproduce          | Cross-locale golden hashes                                             |
-| #32      | Non-Claude implementer    | Opus 5.5                                     | Clean checkout and failing-case CI receipt                             |
-| #33      | Sol + release operator    | Opus 5.5                                     | Founder signs any retrospective accepted risk                          |
+| #31      | Non-Claude implementer    | Grok 4.6                                     | Cross-locale golden hashes; original Opus auditor recused              |
+| #32      | Non-Claude implementer    | Grok 4.6                                     | Clean checkout and failing-case CI receipt; Opus auditor recused       |
+| #33      | Sol + release operator    | Grok 4.6                                     | Founder signs any retrospective accepted risk; Opus auditor recused    |
 | #34      | Opus 5.5                  | Grok 4.6                                     | Browser state matrix and #13 dispositions                              |
 
 ## Current execution gate

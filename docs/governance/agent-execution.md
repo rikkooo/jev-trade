@@ -10,6 +10,8 @@ This runbook implements the [Phase Two goal](../../GOAL.md). Sol (GPT-6) is the 
 
 Lineage means provider/model family. Count every author and co-author trailer, plus any other evidenced contributor, when choosing DD. A mixed OpenAI/Claude card therefore needs a verified third lineage such as Grok; a second Claude or OpenAI seat cannot independently accept it. Record model identity and authorship on each commit and review receipt. Sol fixes the reviewer assignment when the card starts, retains replaced or dissenting reviews, and serializes merges and prerelease versions. An author does not mark their own card accepted or dismiss their own blocker or major finding. When Sol authors a card, the named non-author DD accepts its implementation evidence; `ACCEPTED_RISK` and `INVALID_WITH_COUNTEREVIDENCE` dispositions require founder sign-off. Repo-local `GOAL.md` and `AGENTS.md` govern Jev Trade when inherited HQ instructions are broader.
 
+The #11 auditor explicitly recused itself from reviewing fixes to its three major findings. #31–#33 therefore receive Grok DD even when their implementation is non-Claude. Preserve that source-specific recusal alongside the general lineage rule.
+
 ## Required receipt
 
 Store each cold review as `docs/reviews/issue-N-cold-review.md` or an issue-linked equivalent. Record reviewer lineage and served model, author lineage, exact base/head SHA, worktree or clean-checkout identity, commands and results, reproducible findings by severity, limitations, disposition, and the final tested SHA. A passing command proves only the behavior it exercised. Keep secrets, raw licensed payloads, and protected prompts out of receipts.
