@@ -11,6 +11,12 @@ function optionalString(minimumLength = 1) {
   );
 }
 
+export const RUNTIME_DATABASE_URL_KEYS = [
+  "OPERATOR_DATABASE_URL",
+  "WORKER_DATABASE_URL",
+  "PUBLIC_DATABASE_URL",
+] as const;
+
 export const serverEnvSchema = z
   .object({
     APP_MODE: z.enum(["fixture", "live"]).default("fixture"),
@@ -19,6 +25,9 @@ export const serverEnvSchema = z
     DURABLE_WRITES: booleanString.default(false),
     DATABASE_URL: optionalString(),
     DATABASE_MIGRATION_URL: optionalString(),
+    OPERATOR_DATABASE_URL: optionalString(),
+    WORKER_DATABASE_URL: optionalString(),
+    PUBLIC_DATABASE_URL: optionalString(),
     OPENROUTER_API_KEY: optionalString(20),
     AI_GATEWAY_API_KEY: optionalString(20),
     CRON_SECRET: optionalString(32),
@@ -30,11 +39,49 @@ export const serverEnvSchema = z
     VERCEL_ENV: optionalString(),
   })
   .superRefine((env, ctx) => {
-    if (env.DURABLE_WRITES && !env.DATABASE_URL) {
+    // Durable mode uses role-specific connections only (#15). A single
+    // shared runtime connection cannot express the privilege matrix.
+    if (env.DURABLE_WRITES) {
+      for (const key of RUNTIME_DATABASE_URL_KEYS) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [key],
+            message: "is required when DURABLE_WRITES=true",
+          });
+        }
+      }
+      if (env.DATABASE_URL) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["DATABASE_URL"],
+          message:
+            "is retired; configure OPERATOR_DATABASE_URL, WORKER_DATABASE_URL, and PUBLIC_DATABASE_URL",
+        });
+      }
+    }
+
+    const configuredRoleUrls = RUNTIME_DATABASE_URL_KEYS.filter(
+      (key) => env[key],
+    );
+    const distinctRoleUrls = new Set(
+      configuredRoleUrls.map((key) => env[key]?.trim()),
+    );
+    if (distinctRoleUrls.size !== configuredRoleUrls.length) {
       ctx.addIssue({
         code: "custom",
-        path: ["DATABASE_URL"],
-        message: "is required when DURABLE_WRITES=true",
+        path: ["OPERATOR_DATABASE_URL"],
+        message: "each runtime database role needs its own credential",
+      });
+    }
+    if (
+      env.DATABASE_MIGRATION_URL &&
+      distinctRoleUrls.has(env.DATABASE_MIGRATION_URL.trim())
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["DATABASE_MIGRATION_URL"],
+        message: "the migration owner credential cannot be a runtime role",
       });
     }
 

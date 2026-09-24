@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { parseServerEnv } from "./env";
 
+const ROLE_URLS = {
+  OPERATOR_DATABASE_URL: "postgres://operator-login@db.invalid/jev",
+  WORKER_DATABASE_URL: "postgres://worker-login@db.invalid/jev",
+  PUBLIC_DATABASE_URL: "postgres://public-login@db.invalid/jev",
+} as const;
+
 describe("parseServerEnv", () => {
   it("starts safely in fixture mode without credentials", () => {
     expect(parseServerEnv({})).toMatchObject({
@@ -22,8 +28,10 @@ describe("parseServerEnv", () => {
   });
 
   it("names missing durable-write configuration without values", () => {
-    expect(() => parseServerEnv({ DURABLE_WRITES: "true" })).toThrow(
-      "DATABASE_URL: is required when DURABLE_WRITES=true",
+    expect(() =>
+      parseServerEnv({ APP_MODE: "live", DURABLE_WRITES: "true" }),
+    ).toThrow(
+      "OPERATOR_DATABASE_URL: is required when DURABLE_WRITES=true, WORKER_DATABASE_URL: is required when DURABLE_WRITES=true, PUBLIC_DATABASE_URL: is required when DURABLE_WRITES=true",
     );
   });
 
@@ -31,7 +39,7 @@ describe("parseServerEnv", () => {
     expect(() =>
       parseServerEnv({
         DURABLE_WRITES: "true",
-        DATABASE_URL: "postgres://configured",
+        ...ROLE_URLS,
       }),
     ).toThrow("DURABLE_WRITES: requires APP_MODE=live");
   });
@@ -50,7 +58,7 @@ describe("parseServerEnv", () => {
       APP_MODE: "live",
       PUBLIC_MARKET_DATA: "true",
       DURABLE_WRITES: "true",
-      DATABASE_URL: "postgres://configured",
+      ...ROLE_URLS,
       MARKET_DATA_API_KEY: "configured",
     };
 

@@ -4,7 +4,9 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 import {
+  assertNoUnknownMigrations,
   loadMigrationManifest,
+  parseMigrationArguments,
   prepareMigrationSql,
   redactDatabaseError,
   requireMigrationUrl,
@@ -21,6 +23,10 @@ describe("database release migrations", () => {
       {
         version: "0001_immutable_ledger",
         fileName: "db/migrations/0001_immutable_ledger.up.sql",
+      },
+      {
+        version: "0002_evidence_lab_registry",
+        fileName: "db/migrations/0002_evidence_lab_registry.up.sql",
       },
     ]);
 
@@ -63,5 +69,36 @@ $$;`);
     expect(redactDatabaseError(new Error(message), credential)).toBe(
       "[REDACTED_DATABASE_URL] failed via [REDACTED_DATABASE_URL]",
     );
+  });
+
+  it("rehearses an upgrade only through a reviewed manifest version", async () => {
+    const manifest = await loadMigrationManifest();
+    expect(parseMigrationArguments([], manifest)).toEqual({ through: null });
+    expect(
+      parseMigrationArguments(
+        ["--", "--through", "0001_immutable_ledger"],
+        manifest,
+      ),
+    ).toEqual({ through: "0001_immutable_ledger" });
+    expect(() =>
+      parseMigrationArguments(["--through", "0009_unknown"], manifest),
+    ).toThrow("not a reviewed manifest version");
+    expect(() => parseMigrationArguments(["--force"], manifest)).toThrow(
+      "usage: db:migrate",
+    );
+  });
+
+  it("refuses a database already migrated past the reviewed manifest", async () => {
+    const manifest = await loadMigrationManifest();
+    const v01Manifest = manifest.slice(0, 2);
+    expect(() =>
+      assertNoUnknownMigrations(
+        ["0000_roles", "0001_immutable_ledger", "0002_evidence_lab_registry"],
+        v01Manifest,
+      ),
+    ).toThrow("recovery is forward-only");
+    expect(() =>
+      assertNoUnknownMigrations(["0000_roles"], manifest),
+    ).not.toThrow();
   });
 });

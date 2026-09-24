@@ -1,0 +1,152 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`safe projections > snapshots the protected cohort, public evidence, receipt, and failure DTOs 1`] = `
+{
+  "cohort": {
+    "arms": [
+      "standard-tools",
+      "jev",
+      "full-jev-trade",
+      "naive-controls",
+    ],
+    "cohortVersion": 1,
+    "contentHash": "3c13556efd57c99282bd962836ae9a8f3807b8ce65979357a71203dc0b0514a0",
+    "dtoVersion": "evidence-lab-dto/v1",
+    "evidenceClass": "EXPLORATORY",
+    "firstForecastLocked": false,
+    "horizons": [
+      "15m",
+      "60m",
+    ],
+    "id": "fx-cohort-day-v1",
+    "lifecycleStatus": "ACTIVATION_PENDING",
+    "minimumEvidence": {
+      "clusters": 2,
+      "resolvedForecasts": 10,
+      "resolvedPerHorizon": 5,
+      "symbols": 2,
+    },
+    "mode": "fixture",
+    "pack": "day",
+    "predecessorCohortId": null,
+    "registry": [
+      {
+        "contentHash": "58dbde6d6e723d5f3561f76f9bb4fbe830dda179f4dc74a5daa536b54983f60d",
+        "entryId": "fx-day-packProfile-v1",
+        "slot": "packProfile",
+      },
+      {
+        "contentHash": "8e1c19e680f1bee8f8c8666b3c5d8a933ab0c52f71ad62ebcc6b899d4af7f725",
+        "entryId": "fx-day-feature-v1",
+        "slot": "feature",
+      },
+      {
+        "contentHash": "03177779e9cc335a84f65699af2d0420de6d72b3ca0cf8a3ee8a5393bb9ccbbc",
+        "entryId": "fx-day-prompt-v1",
+        "slot": "prompt",
+      },
+      {
+        "contentHash": "088d462441bc0ad6dbf154824b2a8f3305bb50ff37fbb431ca199453d4b9b106",
+        "entryId": "fx-day-model-v1",
+        "slot": "model",
+      },
+      {
+        "contentHash": "cbc913c2ea53ee9a5d6952932f0b4a59aee26c08ec95b0a872294fb23d835b35",
+        "entryId": "fx-day-risk-v1",
+        "slot": "risk",
+      },
+      {
+        "contentHash": "29e5cfe27690c3a019e3b31ec77327ce84e853d28006fb8d52134f867fa45884",
+        "entryId": "fx-day-policy-v1",
+        "slot": "policy",
+      },
+      {
+        "contentHash": "4f4d125bba9760ddf00a2b7214748491b098a170b27d235653c4a8f1c2dc3099",
+        "entryId": "fx-day-execution-v1",
+        "slot": "execution",
+      },
+      {
+        "contentHash": "3858883fc344901e1df3bce49757283db23d45539483ba303d5446fb2877cd74",
+        "entryId": "fx-day-costScenarios-v1",
+        "slot": "costScenarios",
+      },
+      {
+        "contentHash": "9856e8a831ebd7af6b8146a6c7b53d3894c958870b08d7b17c32ec46bf1af1fa",
+        "entryId": "fx-day-outcome-v1",
+        "slot": "outcome",
+      },
+      {
+        "contentHash": "30fe9b69577ffd797c78a767c2b5da9b37e0cb2805d794b9a9f59ba000cbae63",
+        "entryId": "fx-day-baseline-v1",
+        "slot": "baseline",
+      },
+      {
+        "contentHash": "9925d86b687fccdfd51e0d42b4d03af31c31b73a3cc9c3ce27d6031da6c47b5c",
+        "entryId": "fx-day-metric-v1",
+        "slot": "metric",
+      },
+    ],
+    "registryRootHash": "594377fae3e4ccf06aa0534bba332406baf24fc2fafb984ba73aa63dcd59f912",
+    "universe": {
+      "snapshotHash": "f84b8bd51d7b566f99e53e60912a32376e1d7244b714855306c0307b20d27b44",
+      "symbolCount": 3,
+    },
+  },
+  "evidenceState": {
+    "admissionManifestHash": "2156f9968971a2b3d9fb083bfa693bf1cf43d23d5aab8571732f32dc318bf43c",
+    "contentHash": "c7700dfd3215ab41554fb9a0142bd43f5ebb061c00ef52c42d29ff31b7308213",
+    "cutoffAt": "2026-09-18T14:00:00.000Z",
+    "dtoVersion": "evidence-lab-dto/v1",
+    "evidenceClass": "EXPLORATORY",
+    "id": "fx-state-day-aapl-1400",
+    "linkKind": null,
+    "normalizedStateHash": "7ed8c7584b8a41b473112f39d55ef964bcce4e414b77d7c121cebe9ab447ea8b",
+    "pack": "day",
+    "predecessorStateId": null,
+    "sources": [
+      {
+        "availableAt": "2026-09-18T13:30:05.000Z",
+        "correctionAt": null,
+        "effectiveAt": "2026-09-18T13:30:00.000Z",
+        "publishedAt": "2026-09-18T13:30:00.000Z",
+        "sourceKind": "BAR",
+        "sourceRevisionId": "fx-src-aapl-bar-1330",
+        "supersedesRevisionId": null,
+      },
+    ],
+    "subject": "AAPL",
+    "withheldSourceCount": 1,
+  },
+  "failure": {
+    "code": "GATED",
+    "dtoVersion": "evidence-lab-dto/v1",
+    "message": "This capability is held closed by a Phase Two gate.",
+  },
+  "receipt": {
+    "authoritative": false,
+    "batchId": "fx-batch-b",
+    "blockers": [
+      "RECEIPT_LATE",
+      "INDEPENDENT_SINK_VERIFICATION_UNAVAILABLE",
+    ],
+    "claimedStatus": "LATE",
+    "dtoVersion": "evidence-lab-dto/v1",
+    "rootHash": "fa4d96b5a0016b1a1d78203672ccdf1f7c235cd238f7610073f49f667eb7a097",
+  },
+  "restatedState": {
+    "admissionManifestHash": "b11827da45fd614369aaf57108ebee17fd32ae730537954ffb249c9071887e23",
+    "contentHash": "9017e925e55006f349fe9df12d9e877c36d2d0e7f1831226022b5930236ceb4c",
+    "cutoffAt": "2026-07-01T20:00:00.000Z",
+    "dtoVersion": "evidence-lab-dto/v1",
+    "evidenceClass": "EXPLORATORY",
+    "id": "fx-state-lt-msft-0701",
+    "linkKind": "REASSESSMENT",
+    "normalizedStateHash": "069eca157abe40eee8b3e07721da88ab37c9f29202d1c75deb9bd0238dda9b8d",
+    "pack": "long-term",
+    "predecessorStateId": "fx-state-lt-msft-0501",
+    "sources": [],
+    "subject": "MSFT",
+    "withheldSourceCount": 1,
+  },
+}
+`;

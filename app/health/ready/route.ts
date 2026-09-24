@@ -1,4 +1,4 @@
-import { getServerEnv } from "@/modules/config/env";
+import { getServerEnv, RUNTIME_DATABASE_URL_KEYS } from "@/modules/config/env";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ export async function GET(): Promise<Response> {
       status: "ready",
       mode: env.APP_MODE,
       capabilities: {
-        database: Boolean(env.DATABASE_URL),
+        database: RUNTIME_DATABASE_URL_KEYS.every((key) => Boolean(env[key])),
         durableWrites: env.DURABLE_WRITES,
         publicMarketData: env.PUBLIC_MARKET_DATA,
       },

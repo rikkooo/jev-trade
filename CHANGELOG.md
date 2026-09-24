@@ -2,6 +2,23 @@
 
 All notable Jev Trade changes are recorded here. Versions follow [Semantic Versioning](https://semver.org/), including monotonic prerelease builds during an active milestone.
 
+## Unreleased — #15, prerelease number assigned at merge
+
+### Added
+
+- Added the Phase Two Evidence Lab foundation: migration `0002_evidence_lab_registry` stores a content-addressed methodology registry, versioned cohorts bound to a registry root, point-in-time source revisions, evidence states with reassessment and correction links, operator audit events, and independent-timestamp receipt observations. All of it is append-only and written only through named role procedures ([#15](https://github.com/rikkooo/jev-trade/issues/15)).
+- Defined shared typed contracts for all four pack profiles, their stance, action, and simulated-execution vocabularies, prediction provenance with every version boundary, four-arm equivalence, decision links, outcomes, and the run lifecycle.
+- Added safe projection DTOs with a guard that fails closed on protected key names and on secret or protected values, plus a SQL denial suite, a TypeScript-to-PostgreSQL integration suite driven by per-role logins, and a v0.1-populated upgrade and rollback rehearsal.
+
+### Changed
+
+- Durable mode now requires distinct `OPERATOR_DATABASE_URL`, `WORKER_DATABASE_URL`, and `PUBLIC_DATABASE_URL` credentials and rejects the single `DATABASE_URL`. No runtime role may reuse the migration owner credential.
+- The migration runner and verifier refuse a database that records an unknown migration. `pnpm db:migrate -- --through <version>` rehearses upgrades. The verifier recomputes every Phase Two seal and every typed column.
+
+### Held
+
+- Prospective cohort activation, prospective evidence states, live or licensed source origins, and receipt authority remain structurally closed until the readiness (#26), data-rights (#14), and timestamp-sink verification (#30) gates land.
+
 ## [0.2.0-alpha.1] - 2026-09-24
 
 ### Added
