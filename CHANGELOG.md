@@ -2,6 +2,16 @@
 
 All notable Jev Trade changes are recorded here. Versions follow [Semantic Versioning](https://semver.org/), including monotonic prerelease builds during an active milestone.
 
+## [0.2.0-alpha.3] - 2026-09-24
+
+### Added
+
+- Published the frozen-v0.1.0 responsive UI, accessibility, and public-state audit with screenshots, a route-state matrix, and an independent cold-review receipt ([#12](https://github.com/rikkooo/jev-trade/issues/12), [PR #37](https://github.com/rikkooo/jev-trade/pull/37)). The source audit submitted eight major and seven minor findings; the skip-link major is disputed by Chrome counterevidence, the zoom severity is challenged, and the original raw audit output was not retained. Reconciliation and any accepted fixes remain in [#13](https://github.com/rikkooo/jev-trade/issues/13) and [#34](https://github.com/rikkooo/jev-trade/issues/34).
+
+### Held
+
+- The uncoached four-of-five comprehension gate is `NOT VERIFIABLE` until the founder's human validation runs. Hardware screen-reader behavior and several unavailable production states were not observed. The audit records these limits rather than claiming accessibility acceptance.
+
 ## [0.2.0-alpha.2] - 2026-09-24
 
 ### Added
@@ -34,6 +44,7 @@ All notable Jev Trade changes are recorded here. Versions follow [Semantic Versi
 - Released the public fixture prototype with blind picks, Position and Sprint modes, separated judgment and risk concepts, immutable audit evidence, deterministic policy and scoring, baseline comparisons, and a zero-sample prospective scorecard.
 - Added reproducible forecast and deployment verification, database release controls, Vercel and Docker deployment paths, and the simulation and methodology disclosures.
 
-[0.2.0-alpha.2]: https://github.com/rikkooo/jev-trade/compare/8040b97...HEAD
+[0.2.0-alpha.3]: https://github.com/rikkooo/jev-trade/compare/1ef3463...HEAD
+[0.2.0-alpha.2]: https://github.com/rikkooo/jev-trade/compare/8040b97...1ef3463
 [0.2.0-alpha.1]: https://github.com/rikkooo/jev-trade/compare/v0.1.0...8040b97
 [0.1.0]: https://github.com/rikkooo/jev-trade/releases/tag/v0.1.0

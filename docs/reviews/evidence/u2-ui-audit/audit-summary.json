@@ -1,0 +1,1360 @@
+{
+  "generatedAt": "2026-09-20T01:08:14.771Z",
+  "origins": [
+    {
+      "name": "local",
+      "origin": "http://127.0.0.1:3000",
+      "health": {
+        "status": 200,
+        "body": "{\"status\":\"ok\",\"service\":\"jev-trade\",\"mode\":\"fixture\",\"capabilities\":{\"database\":false,\"durableWrites\":false,\"publicMarketData\":false,\"liveJudgments\":false},\"fixtureSafety\":{\"credentialFree\":true},\"deployment\":{\"environment\":\"local\",\"revision\":\"development\"}}"
+      },
+      "desktopRoutes": [
+        {
+          "path": "/",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "See the call. Inspect the risk. Keep the record.",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/explore",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Explore every fixture state",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/acme",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "ACME",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/nova",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "NOVA",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/mesa",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "MESA",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/orbt",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "ORBT",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/heli",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "HELI",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/kite",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "KITE",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/vela",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "VELA",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/luma",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "LUMA",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/zzzz",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K4MESA1SPRINTRES00001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "MESA \u00b7 SPRINT 1S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K3ORBT5SPRINTSTALE001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "ORBT \u00b7 SPRINT 5S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K3HELI20POSINCOMP0001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "HELI \u00b7 POSITION 20S",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K3KITE1SPRINTFAIL0001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "KITE \u00b7 SPRINT 1S",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K2VELA5SPRINTVOID0001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "VELA \u00b7 SPRINT 5S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K2LUMA20POSCORR00001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "LUMA \u00b7 POSITION 20S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K5D3JEVNOVA20POS00001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "NOVA \u00b7 POSITION 20S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K5D3JEVACME5SPRINT0001",
+          "status": 404,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K4MESA1SPRINTRES00001/share",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "MESA SPRINT \u00b7 1 SESSIONS",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K5D3JEVACME5SPRINT0001/share",
+          "status": 404,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/portfolio",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Synthetic paper portfolio",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/scorecard",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Scorecard is ready for evidence",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/methodology",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "On this page",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "How Jev Trade makes a decision inspectable",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/operator",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Operator status",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/this-route-does-not-exist",
+          "status": 404,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        }
+      ],
+      "skipAfter": {
+        "activeId": "",
+        "activeTag": "BODY",
+        "hash": "#main-content",
+        "mainExists": true
+      },
+      "reveal": {
+        "hasJevJudgment": true,
+        "hasMarketRisk": true,
+        "hasPositionRisk": true,
+        "hasPolicyAction": true,
+        "hasProbabilityOfProfitDisclaimer": true,
+        "overflowX": false
+      },
+      "zoom200MobileOverflow": true,
+      "zoom200MobileScrollWidth": 640,
+      "lightAxe": {
+        "violationCount": 1,
+        "ids": [
+          "color-contrast"
+        ]
+      },
+      "lightContrastFailCount": 9,
+      "searchEmpty": "No matching synthetic fixture symbol.",
+      "chart": {
+        "title": "NOVA synthetic adjusted closes",
+        "desc": "A 23-session synthetic fixture line chart. The equivalent table follows.",
+        "summary": "View accessible session data",
+        "rowCount": 23
+      },
+      "mobileMethodologyNavOverflow": true
+    },
+    {
+      "name": "deployed",
+      "origin": "https://www.jev-trade.dev",
+      "health": {
+        "status": 200,
+        "body": "{\"status\":\"ok\",\"service\":\"jev-trade\",\"mode\":\"fixture\",\"capabilities\":{\"database\":false,\"durableWrites\":false,\"publicMarketData\":false,\"liveJudgments\":false},\"fixtureSafety\":{\"credentialFree\":true},\"deployment\":{\"environment\":\"production\",\"revision\":\"c75b9aa26f8f\"}}"
+      },
+      "desktopRoutes": [
+        {
+          "path": "/",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "See the call. Inspect the risk. Keep the record.",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/explore",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Explore every fixture state",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/acme",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "ACME",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/nova",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "NOVA",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/mesa",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "MESA",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/orbt",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "ORBT",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/heli",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "HELI",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/kite",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "KITE",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/vela",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "VELA",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/luma",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary",
+            "Breadcrumb"
+          ],
+          "h1": "Reconstructing the decision view\u2026",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/stocks/zzzz",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K4MESA1SPRINTRES00001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "MESA \u00b7 SPRINT 1S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K3ORBT5SPRINTSTALE001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "ORBT \u00b7 SPRINT 5S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K3HELI20POSINCOMP0001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "HELI \u00b7 POSITION 20S",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K3KITE1SPRINTFAIL0001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "KITE \u00b7 SPRINT 1S",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K2VELA5SPRINTVOID0001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "VELA \u00b7 SPRINT 5S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K2LUMA20POSCORR00001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "LUMA \u00b7 POSITION 20S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K5D3JEVNOVA20POS00001",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Breadcrumb",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "NOVA \u00b7 POSITION 20S",
+          "hasJev": true,
+          "hasMarket": true,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K5D3JEVACME5SPRINT0001",
+          "status": 404,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K4MESA1SPRINTRES00001/share",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "MESA SPRINT \u00b7 1 SESSIONS",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/forecasts/01K5D3JEVACME5SPRINT0001/share",
+          "status": 404,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/portfolio",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Synthetic paper portfolio",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/scorecard",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Scorecard is ready for evidence",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/methodology",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "On this page",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "How Jev Trade makes a decision inspectable",
+          "hasJev": true,
+          "hasMarket": false,
+          "hasPosition": true,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/operator",
+          "status": 200,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "Operator status",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        },
+        {
+          "path": "/this-route-does-not-exist",
+          "status": 404,
+          "overflowX": false,
+          "mains": [
+            {
+              "tag": "main",
+              "id": "main-content",
+              "parentMain": false
+            },
+            {
+              "tag": "main",
+              "id": null,
+              "parentMain": true
+            }
+          ],
+          "navLabels": [
+            "(unlabeled)",
+            "Footer",
+            "Mobile primary"
+          ],
+          "h1": "That market record is not in the ledger.",
+          "hasJev": false,
+          "hasMarket": false,
+          "hasPosition": false,
+          "hasSim": true,
+          "axeViolations": 0
+        }
+      ],
+      "skipAfter": {
+        "activeId": "",
+        "activeTag": "BODY",
+        "hash": "#main-content",
+        "mainExists": true
+      },
+      "reveal": {
+        "hasJevJudgment": true,
+        "hasMarketRisk": true,
+        "hasPositionRisk": true,
+        "hasPolicyAction": true,
+        "hasProbabilityOfProfitDisclaimer": true,
+        "overflowX": false
+      },
+      "zoom200MobileOverflow": true,
+      "zoom200MobileScrollWidth": 640,
+      "lightAxe": {
+        "violationCount": 1,
+        "ids": [
+          "color-contrast"
+        ]
+      },
+      "lightContrastFailCount": 9,
+      "searchEmpty": "No matching synthetic fixture symbol.",
+      "chart": {
+        "title": "NOVA synthetic adjusted closes",
+        "desc": "A 23-session synthetic fixture line chart. The equivalent table follows.",
+        "summary": "View accessible session data",
+        "rowCount": 23
+      },
+      "mobileMethodologyNavOverflow": true
+    }
+  ]
+}
