@@ -106,32 +106,6 @@ const SCREENSHOT_ROUTES = new Set([
   "not-found",
 ]);
 
-function relativeLuminance(r, g, b) {
-  const f = (c) => {
-    const s = c / 255;
-    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-}
-
-function parseRgb(input) {
-  if (!input) return null;
-  if (input === "transparent" || input.includes("rgba(0, 0, 0, 0)"))
-    return null;
-  const m = input.match(/rgba?\(([^)]+)\)/);
-  if (!m) return null;
-  const [r, g, b, a] = m[1].split(",").map((x) => Number(x.trim()));
-  if (Number.isFinite(a) && a === 0) return null;
-  return [r, g, b];
-}
-
-function contrastRatio(fg, bg) {
-  const L1 = relativeLuminance(...fg);
-  const L2 = relativeLuminance(...bg);
-  const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
-  return (hi + 0.05) / (lo + 0.05);
-}
-
 async function collectPageMetrics(page) {
   return page.evaluate(() => {
     const overflowX =
