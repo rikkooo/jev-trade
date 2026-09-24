@@ -28,7 +28,7 @@ The program contract merged through [PR #29](https://github.com/rikkooo/jev-trad
 | Card                                                  | Outcome                                                                | Primary worker   | Depends on | State                                                   |
 | ----------------------------------------------------- | ---------------------------------------------------------------------- | ---------------- | ---------- | ------------------------------------------------------- |
 | [#10](https://github.com/rikkooo/jev-trade/issues/10) | Lock goal, requirements, roadmap, status, issues, and release controls | Sol              | None       | Merged PR #29; Grok 4.6 DD PASS                         |
-| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Audit and 50-row index prepared; Grok DD gate           |
+| [#11](https://github.com/rikkooo/jev-trade/issues/11) | Cold v0.1.0 code, release, security, and reproducibility audit         | Opus5            | #10        | Audit and 50-row index in PR #35; DD tracked there      |
 | [#12](https://github.com/rikkooo/jev-trade/issues/12) | Cold responsive UI/UX, accessibility, and comprehension audit          | Grok 4.6         | #10        | Report committed in worktree; land and DD               |
 | [#14](https://github.com/rikkooo/jev-trade/issues/14) | Provider rights, point-in-time semantics, and pack readiness matrix    | Gemini 3.8 Flash | #10        | Candidate `1af1350` rejected; fixes and new DD required |
 | [#13](https://github.com/rikkooo/jev-trade/issues/13) | Reconcile cold audits and founder testing                              | Sol + founder    | #11, #12   | Skeleton only; human results pending                    |
@@ -125,7 +125,7 @@ These assignments apply to the named card, not an entire downstream system. Sol 
 
 ## Current execution gate
 
-#10 passed Grok DD and merged. Land #11 and #12 with their limits intact. The #14 candidate has eight major Opus advisory findings, including fail-open schema cases and unsupported rights claims; it requires corrections and full-branch Grok DD before landing. Opus 5.5 is salvaging #15 on its isolated branch, but #15 cannot merge until its full contract, migration, least-privilege, clean-checkout, and Grok DD gates pass. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
+#10 passed Grok DD and merged. Accept #11 and #12 only through their reviewed PRs, with their limits intact. The #14 candidate has eight major Opus advisory findings, including fail-open schema cases and unsupported rights claims; it requires corrections and full-branch Grok DD before landing. Opus 5.5 is salvaging #15 on its isolated branch, but #15 cannot merge until its full contract, migration, least-privilege, clean-checkout, and Grok DD gates pass. The existing `69a921e` commit is a draft, not accepted implementation. #13 remains open for founder and participant evidence. All packs remain fixture-only until rights, runtime, independent chronology, and outcome-maturity gates pass individually; neither an advertised vendor term nor a synthetic test authorizes live activation.
 
 ## Roadmap maintenance
 
