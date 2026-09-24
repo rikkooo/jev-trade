@@ -9,6 +9,7 @@ Supporting artifacts for `docs/reviews/v0.1.0-ui-ux-accessibility-audit.md` and 
 | Frozen worktree | `/home/admin/worktrees/jev-trade-v0.1-ui-target` |
 | Frozen commit | `c75b9aa26f8f13c337bfbdef4b3fba9c0922a4b9` |
 | Frozen tag | `v0.1.0` |
+| Report publication build | `0.2.0-alpha.3` |
 | Deployed origin | `https://www.jev-trade.dev` |
 | Deployed `/api/health` revision | `c75b9aa26f8f` (matches frozen commit) |
 | Local origin | `http://127.0.0.1:3000` standalone production server of the frozen tree |
@@ -43,4 +44,6 @@ Viewports: desktop 1440×1000, tablet 768×1024, mobile 400×860. Input: Playwri
 - `audit-summary.json` — a dated condensed capture. Its shape differs from the current `run-audit.mjs` output; the original raw `audit-raw.json` was not retained. It is not an exact replay artifact for every numeric claim in the report.
 - `screenshots/` — selected local PNGs for findings and representative passes. Deployed captures were not committed; the LUMA summary row shows a loading-state mismatch.
 
-The independent Opus cold review, summarized in [the report errata](../../v0.1.0-ui-ux-accessibility-audit.md#14-independent-cold-review-errata-and-unresolved-findings-2026-09-24), reproduced F02–F05, F07, F08, and F12, but found that the harness did not test the Tab after the skip-link jump. It also lists which numeric claims lack committed raw output and records factual errata in the original report. F01 remains disputed, and no hardware screen-reader or five-participant result is implied by these artifacts.
+The independent Opus cold review, summarized in [the report errata](../../v0.1.0-ui-ux-accessibility-audit.md#14-independent-cold-review-errata-and-unresolved-findings-2026-09-24), reproduced F02–F05, F07, F08, and F12, but found that the harness did not test the Tab after the skip-link jump. F01 remains disputed, and no hardware screen-reader or five-participant result is implied by these artifacts.
+
+Numeric examples without retained raw output include the F05 target measurements, F07 sampled contrast ratios, F12 tab trace, F15 viewport widths, the 18-tab-stop focus sample, reduced-motion duration, and the tablet-route results. They are submitted audit observations, not independently replayable numbers from the committed summary.
