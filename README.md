@@ -16,14 +16,14 @@ The product is a game and public experiment. It does not connect to a broker, ac
 
 The app runs on Node.js 22 with Next.js 16 and pnpm. Vercel is the public web runtime; the HQ box is the canonical build and validation environment. A portable Docker stack remains available for local validation and recovery.
 
-The repository now contains the complete public fixture prototype: blind picks, decision workspaces, the house paper portfolio, immutable audit views, a zero-sample prospective scorecard, deterministic scheduling and scoring, reproducible fixture proofs, capability-gated configuration, and Vercel/Docker release paths. The live data, durable write, and external attestation paths remain disabled until their recorded launch gates pass. Work follows the nine units in the [implementation plan](docs/plans/2026-09-19-1020-feature-jev-trade-prototype-plan.md).
+The repository now contains the complete public fixture prototype: blind picks, decision workspaces, the house paper portfolio, immutable audit views, a zero-sample prospective scorecard, deterministic scheduling and scoring, reproducible fixture proofs, capability-gated configuration, and Vercel/Docker release paths. The live data, durable write, and external attestation paths remain disabled until their recorded launch gates pass. The nine units in the [v0.1.0 plan](docs/plans/2026-09-19-1020-feature-jev-trade-prototype-plan.md) describe the shipped prototype; new work follows the [active goal](GOAL.md), [Phase Two requirements](docs/plans/2026-09-20-0710-feature-jev-trade-evidence-lab-plan.md), and [roadmap issues](ROADMAP.md).
 
 Two deployment modes are deliberate:
 
-| Mode | Purpose | Durable or prospective? |
-| --- | --- | --- |
-| `fixture` | Public product demonstration with committed synthetic data and frozen model fixtures | No. Writes fail closed; a visitor pick is browser-local. |
-| `live` | Licensed market data, OpenRouter Jev evaluations, immutable Postgres ledger, cron jobs, and prospective scorecard | Yes, only after the documented data-rights, database, security, and review gates pass. |
+| Mode      | Purpose                                                                                                           | Durable or prospective?                                                                |
+| --------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `fixture` | Public product demonstration with committed synthetic data and frozen model fixtures                              | No. Writes fail closed; a visitor pick is browser-local.                               |
+| `live`    | Licensed market data, OpenRouter Jev evaluations, immutable Postgres ledger, cron jobs, and prospective scorecard | Yes, only after the documented data-rights, database, security, and review gates pass. |
 
 Vercel plus Neon is the durable architecture. OpenRouter's dedicated Decisions API is the Jev transport. The Vercel AI Gateway credential is optional development infrastructure and is not used as a substitute for OpenRouter.
 
@@ -84,6 +84,13 @@ Secrets belong in ignored local files or Vercel's sensitive environment store. N
 
 ## Documentation
 
+- [Active Phase Two goal](GOAL.md)
+- [Product vision](VISION.md)
+- [Roadmap](ROADMAP.md)
+- [Current status](STATUS.md)
+- [Changelog](CHANGELOG.md)
+- [Phase Two Evidence Lab requirements](docs/plans/2026-09-20-0710-feature-jev-trade-evidence-lab-plan.md)
+- [Version and release policy](docs/governance/versioning.md)
 - [Implementation plan](docs/plans/2026-09-19-1020-feature-jev-trade-prototype-plan.md)
 - [Vercel-first decision](docs/decisions/0001-vercel-first-runtime.md)
 - [Jev and OpenRouter contract](docs/research/jev-openrouter-integration.md)
