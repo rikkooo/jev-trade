@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM node:22.23.2-alpine AS base
+FROM node:26.10.0-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
@@ -18,7 +18,7 @@ ENV PUBLIC_MARKET_DATA=false
 ENV DURABLE_WRITES=false
 RUN pnpm build
 
-FROM node:22.23.2-alpine AS runtime
+FROM node:26.10.0-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
